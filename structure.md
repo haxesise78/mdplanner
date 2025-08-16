@@ -26,6 +26,21 @@ This is a test project to demonstrate the new notes and goals functionality.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Configurations -->
 # Configurations
 
 Start Date: 2025-08-16
@@ -39,6 +54,7 @@ Tags:
 - backend
 - testing
 
+<!-- Notes -->
 # Notes
 
 ## Project Setup Notes
@@ -84,11 +100,34 @@ This should have a linear ID like note_1, note_2, etc.
 <!-- id: note_7 -->
 This should be note_7
 
-## Test #8
+## Test Note with Headers
 
 <!-- id: note_8 -->
-should have id #8
+This note has headers inside it:
 
+# Main Heading in Note
+Some content under the main heading.
+
+## Subheading in Note
+Some content under the subheading.
+
+This should all be part of the same note content.
+
+## New note with headers
+
+<!-- id: note_9 -->
+# Title 1
+
+## Title #2
+
+Some text
+
+## Test Auto-Generated Comments
+
+<!-- id: note_13 -->
+This note should not cause the Goals comment to disappear when auto-save runs.
+
+<!-- Goals -->
 # Goals
 
 ## Increase User Engagement {type: enterprise; kpi: 25% increase in daily active users; start: 2025-01-01; end: 2025-12-31; status: on-track}
@@ -109,11 +148,14 @@ All API endpoints have been successfully tested and are working correctly!
 ## testing goal {type: project; kpi: 25% of efficiency to develop more tool monthly; start: 2025-08-16; end: 2025-09-01; status: late}
 
 <!-- id: goal_4 -->
-## Test Goal Linear ID {type: project; kpi: 100% completion; start: 2025-08-16; end: 2025-08-20; status: planning}
+<!-- Board -->
+<!-- Board -->
+<!-- Board -->
+<!-- Board -->
+<!-- Board -->
+<!-- Board -->
 
-<!-- id: goal_5 -->
-This should be goal_5
-
+<!-- Board -->
 # Board
 
 ## Ideas

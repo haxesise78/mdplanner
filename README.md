@@ -117,6 +117,7 @@ MD Planner uses a specific markdown format to store tasks and configuration:
 
 Project description goes here...
 
+<!-- Configurations -->
 # Configurations
 
 Start Date: 2024-01-15
@@ -131,6 +132,7 @@ Tags:
 - Feature
 - Enhancement
 
+<!-- Notes -->
 # Notes
 
 ## Project Setup Notes
@@ -148,6 +150,10 @@ Discussed the new features:
 - Notes section with tabs
 - Goals tracking with KPIs
 
+# Headers in Notes Work Now!
+You can use any level of headers within note content.
+
+<!-- Goals -->
 # Goals
 
 ## Increase User Engagement {type: enterprise; kpi: 25% increase in daily active users; start: 2025-01-01; end: 2025-12-31; status: on-track}
@@ -160,6 +166,7 @@ Focus on improving user experience and adding new features that keep users engag
 <!-- id: goal_2 -->
 Release the minimum viable product with task management, notes, and goals functionality.
 
+<!-- Board -->
 # Board
 
 ## Ideas
@@ -213,6 +220,14 @@ Can include markdown formatting, lists, and rich text.
 - **Inline Editing**: Click title or content to edit directly
 - **Tab Navigation**: Easy switching between multiple notes
 - **Horizontal Scroll**: Tabs scroll horizontally when too many to fit
+
+**Note Content Features:**
+- **Full Header Support**: Safely use `# Header` and `## Header` within note content without breaking document structure
+- **Advanced Markdown Support**: Complete markdown formatting including lists, code blocks, emphasis, and nested headers
+- **Intelligent Parsing**: Smart detection prevents content headers from being mistaken for new note boundaries
+- **Leak-Proof Architecture**: Robust boundary system ensures note content never spills into other sections
+- **Auto-Generated Boundaries**: System automatically maintains section separators during file operations
+- **Content Freedom**: Write complex, multi-level content without parsing restrictions
 
 ### Goals Configuration
 
@@ -303,11 +318,28 @@ Complete dark theme support with:
 - Backend API uses stored IDs for data operations
 - Automatic ID generation based on existing highest ID
 
+**Markdown Parsing Rules:**
+- **Section Boundary Comments**: Use HTML comments to mark section boundaries:
+  - `<!-- Configurations -->` - Marks start of configuration section
+  - `<!-- Notes -->` - Marks start of notes section  
+  - `<!-- Goals -->` - Marks start of goals section
+  - `<!-- Board -->` - Marks start of board section
+- **Smart Note Detection**: Parser distinguishes between note titles and content headers using look-ahead logic
+- **Header Support**: You can now safely use `#` and `##` headers within note content without breaking parsing
+- **Automatic Boundary Preservation**: System automatically maintains section boundaries when saving content
+
+**Advanced Parsing Features:**
+- **Look-Ahead Detection**: When encountering `## Header`, parser checks for `<!-- id: note_X -->` comment to determine if it's a new note or content
+- **Content Leak Prevention**: HTML comment boundaries prevent note content from spilling into other sections
+- **Robust Section Separation**: Even complex note content with multiple headers stays properly contained
+- **Auto-Generated Comments**: System automatically adds boundary comments when regenerating files
+
 **Auto-Save Implementation:**
 - 1-second debounce timer to prevent excessive saves
 - Real-time content synchronization with backend
 - Graceful error handling and retry logic
 - Preserves content integrity during editing sessions
+- **Boundary Comment Preservation**: Auto-save maintains all section boundary comments to prevent content leakage
 
 **REST API Endpoints:**
 ```
@@ -328,6 +360,37 @@ DELETE /api/goals/:id   # Delete goal
 - Real-time filtering and search capabilities
 - Responsive design with dark mode consistency
 - Visual status indicators and type badges
+
+## Troubleshooting
+
+### Content Leaking Between Sections
+
+If you notice note content appearing in other sections or parsing issues:
+
+1. **Check Boundary Comments**: Ensure all major sections have their boundary comments:
+   ```markdown
+   <!-- Configurations -->
+   # Configurations
+   
+   <!-- Notes -->
+   # Notes
+   
+   <!-- Goals -->
+   # Goals
+   
+   <!-- Board -->
+   # Board
+   ```
+
+2. **Auto-Regeneration**: The system automatically adds missing boundary comments when saving, but manual editing might remove them.
+
+3. **Note ID Format**: Ensure note IDs follow the pattern `<!-- id: note_\d+ -->` (e.g., `<!-- id: note_1 -->`)
+
+### Parser Behavior
+
+- **Headers in Content**: `# Header` and `## Header` within note content are now fully supported
+- **Smart Detection**: Parser uses look-ahead to distinguish between note titles and content headers
+- **Boundary Preservation**: All file operations maintain section boundary integrity
 
 ## Screenshots
 

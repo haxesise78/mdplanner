@@ -103,6 +103,31 @@ export class MarkdownParser {
       }
 
       // Check which section we're entering
+      // Check for section boundary comments
+      if (line.trim() === '<!-- Configurations -->') {
+        inConfigSection = true;
+        inNotesSection = false;
+        inGoalsSection = false;
+        i++;
+        continue;
+      }
+
+      if (line.trim() === '<!-- Notes -->') {
+        inNotesSection = true;
+        inConfigSection = false;
+        inGoalsSection = false;
+        i++;
+        continue;
+      }
+
+      if (line.trim() === '<!-- Goals -->') {
+        inGoalsSection = true;
+        inConfigSection = false;
+        inNotesSection = false;
+        i++;
+        continue;
+      }
+
       if (line === '# Configurations') {
         inConfigSection = true;
         inNotesSection = false;
@@ -200,12 +225,38 @@ export class MarkdownParser {
         const noteContent: string[] = [];
         i++;
 
-        // Collect note content until next ## or #
+        // Collect note content until next note or major section
         while (i < lines.length) {
           const contentLine = lines[i];
-          if (contentLine.trim().startsWith('## ') || contentLine.trim().startsWith('# ')) {
+          const trimmedLine = contentLine.trim();
+          
+          // Break on section boundary comments
+          if (trimmedLine.match(/<!-- (Board|Goals|Configurations) -->/)) {
             break;
           }
+          
+          // Check if this is a new note (## followed by <!-- id: note_X --> within a few lines)
+          if (trimmedLine.startsWith('## ')) {
+            // Look ahead to see if there's an ID comment coming up
+            let hasIdComment = false;
+            for (let lookAhead = i + 1; lookAhead < Math.min(i + 5, lines.length); lookAhead++) {
+              if (lines[lookAhead].trim().match(/<!-- id: note_\d+ -->/)) {
+                hasIdComment = true;
+                break;
+              }
+              // If we hit another ## or section boundary, stop looking
+              if (lines[lookAhead].trim().startsWith('##') || 
+                  lines[lookAhead].trim().match(/<!-- (Board|Goals|Configurations) -->/)) {
+                break;
+              }
+            }
+            
+            // If we found an ID comment, this is a new note
+            if (hasIdComment) {
+              break;
+            }
+          }
+          
           noteContent.push(contentLine);
           i++;
         }
@@ -1028,15 +1079,15 @@ export class MarkdownParser {
     const tasks = await this.readTasks();
     
     // Update the content with new project info
-    let content = `# ${projectInfo.name}\n\n`;
+    let content = `# ${projectInfo.name}\n`;
     
     // Add project description
     if (projectInfo.description && projectInfo.description.length > 0) {
-      content += projectInfo.description.join('\n') + '\n\n';
+      content += '\n' + projectInfo.description.join('\n') + '\n';
     }
     
     // Add configuration section
-    content += "# Configurations\n\n";
+    content += "\n<!-- Configurations -->\n# Configurations\n\n";
     content += `Start Date: ${config.startDate || new Date().toISOString().split('T')[0]}\n`;
     if (config.workingDaysPerWeek && config.workingDaysPerWeek !== 5) {
       content += `Working Days: ${config.workingDaysPerWeek}\n`;
@@ -1061,7 +1112,7 @@ export class MarkdownParser {
 
     // Add notes section
     if (projectInfo.notes && projectInfo.notes.length > 0) {
-      content += "# Notes\n\n";
+      content += "<!-- Notes -->\n# Notes\n\n";
       for (const note of projectInfo.notes) {
         content += `## ${note.title}\n\n`;
         content += `<!-- id: ${note.id} -->\n`;
@@ -1075,7 +1126,7 @@ export class MarkdownParser {
 
     // Add goals section
     if (projectInfo.goals && projectInfo.goals.length > 0) {
-      content += "# Goals\n\n";
+      content += "<!-- Goals -->\n# Goals\n\n";
       for (const goal of projectInfo.goals) {
         content += `## ${goal.title} {type: ${goal.type}; kpi: ${goal.kpi}; start: ${goal.startDate}; end: ${goal.endDate}; status: ${goal.status}}\n\n`;
         content += `<!-- id: ${goal.id} -->\n`;
@@ -1085,7 +1136,7 @@ export class MarkdownParser {
       }
     }
     
-    content += "# Board\n\n";
+    content += "<!-- Board -->\n# Board\n\n";
 
     // Add existing board sections
     const sections = this.getSectionsFromBoard();
