@@ -2,44 +2,6 @@
 
 This is a test project to demonstrate the new notes and goals functionality.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!-- Configurations -->
 # Configurations
 
@@ -127,6 +89,16 @@ Some text
 <!-- id: note_13 -->
 This note should not cause the Goals comment to disappear when auto-save runs.
 
+## Test Fixed Formatting
+
+<!-- id: note_14 -->
+This should fix both the newlines and duplicate comments issue.
+
+## Final Test
+
+<!-- id: note_15 -->
+Testing if both issues are permanently fixed.
+
 <!-- Goals -->
 # Goals
 
@@ -148,12 +120,19 @@ All API endpoints have been successfully tested and are working correctly!
 ## testing goal {type: project; kpi: 25% of efficiency to develop more tool monthly; start: 2025-08-16; end: 2025-09-01; status: late}
 
 <!-- id: goal_4 -->
-<!-- Board -->
-<!-- Board -->
-<!-- Board -->
-<!-- Board -->
-<!-- Board -->
-<!-- Board -->
+
+## testing duplication {type: enterprise; kpi: 0% dedupication; start: 2025-08-16; end: 2025-08-17; status: on-track}
+
+<!-- id: goal_5 -->
+
+## test fix {type: project; kpi: 100% fix rate; start: 2025-08-16; end: 2025-08-17; status: on-track}
+
+<!-- id: goal_6 -->
+testing the board comment fix
+
+## i think it works now {type: project; kpi: working all night; start: 2025-08-16; end: 2025-08-17; status: planning}
+
+<!-- id: goal_7 -->
 
 <!-- Board -->
 # Board

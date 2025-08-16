@@ -308,14 +308,20 @@ export class MarkdownParser {
           const goalDescription: string[] = [];
           i++;
 
-          // Collect goal description until next ## or #
+          // Collect goal description until next ## or # or boundary comment
           while (i < lines.length) {
             const contentLine = lines[i];
-            if (contentLine.trim().startsWith('## ') || contentLine.trim().startsWith('# ')) {
+            const trimmedLine = contentLine.trim();
+            
+            // Stop at next goal, section, or boundary comment
+            if (trimmedLine.startsWith('## ') || 
+                trimmedLine.startsWith('# ') || 
+                trimmedLine.match(/<!-- (Board|Goals|Configurations|Notes) -->/)) {
               break;
             }
-            if (contentLine.trim()) {
-              goalDescription.push(contentLine.trim());
+            
+            if (trimmedLine) {
+              goalDescription.push(trimmedLine);
             }
             i++;
           }
@@ -1081,9 +1087,12 @@ export class MarkdownParser {
     // Update the content with new project info
     let content = `# ${projectInfo.name}\n`;
     
-    // Add project description
+    // Add project description (filter out empty lines)
     if (projectInfo.description && projectInfo.description.length > 0) {
-      content += '\n' + projectInfo.description.join('\n') + '\n';
+      const cleanDescription = projectInfo.description.filter(line => line.trim() !== '');
+      if (cleanDescription.length > 0) {
+        content += '\n' + cleanDescription.join('\n') + '\n';
+      }
     }
     
     // Add configuration section
@@ -1130,15 +1139,18 @@ export class MarkdownParser {
       for (const goal of projectInfo.goals) {
         content += `## ${goal.title} {type: ${goal.type}; kpi: ${goal.kpi}; start: ${goal.startDate}; end: ${goal.endDate}; status: ${goal.status}}\n\n`;
         content += `<!-- id: ${goal.id} -->\n`;
-        if (goal.description) {
+        if (goal.description && goal.description.trim()) {
           content += `${goal.description}\n\n`;
+        } else {
+          content += `\n`;
         }
       }
     }
     
+    // Add board section
     content += "<!-- Board -->\n# Board\n\n";
-
-    // Add existing board sections
+    
+    // Get existing board sections (this reads from the current file structure)
     const sections = this.getSectionsFromBoard();
     
     for (const section of sections) {
