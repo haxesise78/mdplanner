@@ -1,0 +1,19 @@
+{
+  "name": "md-planner-desktop",
+  "version": "1.0.0",
+  "description": "Desktop version of MD Planner built with Tauri",
+  "main": "index.js",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "start-web": "cd .. && deno run --allow-net --allow-read --allow-write main.ts"
+  },
+  "keywords": ["tauri", "markdown", "planner", "desktop"],
+  "author": "Studio WebUX",
+  "license": "ISC",
+  "dependencies": {
+    "@tauri-apps/api": "^2.7.0",
+    "@tauri-apps/cli": "^2.7.1"
+  }
+}

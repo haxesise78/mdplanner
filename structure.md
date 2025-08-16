@@ -99,6 +99,13 @@ This should fix both the newlines and duplicate comments issue.
 <!-- id: note_15 -->
 Testing if both issues are permanently fixed.
 
+## Testing Tauri Implementation
+
+<!-- id: note_16 -->
+# Tauri 2
+
+Using tauri to test if we can build Desktop app using claude
+
 <!-- Goals -->
 # Goals
 

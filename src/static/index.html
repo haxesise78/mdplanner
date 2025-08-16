@@ -59,31 +59,44 @@
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
     <!-- Header -->
     <header class="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700 transition-colors">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
-                <div class="flex items-center space-x-4">
-                    <!-- View Toggle -->
+        <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+            <!-- Mobile header -->
+            <div class="flex justify-between items-center h-16 md:hidden">
+                <h1 class="text-lg font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
+                <div class="flex items-center space-x-2">
+                    <button id="mobileMenuToggle" class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Desktop header -->
+            <div class="hidden md:flex justify-between items-center h-16">
+                <h1 class="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
+                <div class="flex items-center space-x-2 lg:space-x-4">
+                    <!-- View Toggle - responsive -->
                     <div class="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
-                        <button id="summaryViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">
+                        <button id="summaryViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">
                             Summary
                         </button>
-                        <button id="listViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="listViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             List
                         </button>
-                        <button id="boardViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="boardViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Board
                         </button>
-                        <button id="timelineViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="timelineViewBtn" class="hidden lg:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Timeline
                         </button>
-                        <button id="notesViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="notesViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Notes
                         </button>
-                        <button id="goalsViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="goalsViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Goals
                         </button>
-                        <button id="configViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="configViewBtn" class="hidden lg:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Config
                         </button>
                     </div>
@@ -97,25 +110,71 @@
                         </svg>
                     </button>
                     
-                    <!-- Search -->
+                    <!-- Search - responsive -->
                     <div class="relative">
-                        <input type="text" id="searchInput" placeholder="Search tasks..." class="w-64 pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <input type="text" id="searchInput" placeholder="Search..." class="w-32 lg:w-64 pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
                         <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </div>
                     
                     <!-- Add Task Button -->
-                    <button id="addTaskBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
-                        + Add Task
+                    <button id="addTaskBtn" class="bg-primary text-white px-3 lg:px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm">
+                        <span class="hidden lg:inline">+ Add Task</span>
+                        <span class="lg:hidden">+</span>
                     </button>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Mobile navigation menu -->
+        <div id="mobileMenu" class="hidden md:hidden bg-gray-50 dark:bg-gray-700 border-t dark:border-gray-600">
+            <div class="px-2 py-3 space-y-2">
+                <!-- Mobile view toggle -->
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <button id="summaryViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm text-center">
+                        Summary
+                    </button>
+                    <button id="listViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        List
+                    </button>
+                    <button id="boardViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Board
+                    </button>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="timelineViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Timeline
+                    </button>
+                    <button id="notesViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Notes
+                    </button>
+                    <button id="goalsViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Goals
+                    </button>
+                </div>
+                <button id="configViewBtnMobile" class="w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                    Config
+                </button>
+                
+                <!-- Mobile search -->
+                <div class="relative mt-3">
+                    <input type="text" id="searchInputMobile" placeholder="Search tasks..." class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                
+                <!-- Mobile add task -->
+                <button id="addTaskBtnMobile" class="w-full bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                    + Add Task
+                </button>
             </div>
         </div>
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
         <!-- Loading State -->
         <div id="loading" class="flex justify-center items-center h-64">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -123,11 +182,11 @@
 
         <!-- Summary View -->
         <div id="summaryView" class="hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
                 <!-- Project Info -->
                 <div class="lg:col-span-2">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                        <h2 id="projectName" class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Project Name</h2>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+                        <h2 id="projectName" class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Project Name</h2>
                         <div id="projectDescription" class="prose prose-gray dark:prose-invert max-w-none">
                             <p class="text-gray-600 dark:text-gray-400">Loading project description...</p>
                         </div>
@@ -135,8 +194,8 @@
                 </div>
 
                 <!-- Project Stats -->
-                <div class="space-y-6">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div class="space-y-4 sm:space-y-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Task Overview</h3>
                         <div class="space-y-4">
                             <div class="flex justify-between items-center">
@@ -197,7 +256,7 @@
 
         <!-- Board View -->
         <div id="boardView" class="hidden">
-            <div id="boardContainer" class="grid gap-6">
+            <div id="boardContainer" class="grid gap-4 lg:gap-6 auto-cols-min grid-flow-col overflow-x-auto pb-4">
                 <!-- Columns will be generated dynamically -->
             </div>
         </div>
@@ -213,7 +272,7 @@
                 </div>
                 
                 <!-- Basic Project Settings -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 mb-6 lg:mb-8">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Project Settings</h3>
                         <div class="space-y-4">
@@ -257,7 +316,7 @@
                 </div>
                 
                 <!-- Configuration Management -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-8">
                     <!-- Sections Management -->
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Board Sections</h3>
@@ -408,9 +467,9 @@
         <div id="timelineView" class="hidden">
 
             <!-- Timeline Configuration -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-4 sm:p-6">
                 <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Timeline Settings</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Start Date</label>
                         <input type="date" id="timelineStartDate" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" readonly>

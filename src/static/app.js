@@ -30,7 +30,7 @@ class TaskManager {
     }
 
     bindEvents() {
-        // View toggle
+        // View toggle - Desktop
         document.getElementById('summaryViewBtn').addEventListener('click', () => this.switchView('summary'));
         document.getElementById('listViewBtn').addEventListener('click', () => this.switchView('list'));
         document.getElementById('boardViewBtn').addEventListener('click', () => this.switchView('board'));
@@ -39,11 +39,24 @@ class TaskManager {
         document.getElementById('goalsViewBtn').addEventListener('click', () => this.switchView('goals'));
         document.getElementById('configViewBtn').addEventListener('click', () => this.switchView('config'));
         
+        // Mobile menu toggle
+        document.getElementById('mobileMenuToggle').addEventListener('click', () => this.toggleMobileMenu());
+        
+        // View toggle - Mobile
+        document.getElementById('summaryViewBtnMobile').addEventListener('click', () => { this.switchView('summary'); this.closeMobileMenu(); });
+        document.getElementById('listViewBtnMobile').addEventListener('click', () => { this.switchView('list'); this.closeMobileMenu(); });
+        document.getElementById('boardViewBtnMobile').addEventListener('click', () => { this.switchView('board'); this.closeMobileMenu(); });
+        document.getElementById('timelineViewBtnMobile').addEventListener('click', () => { this.switchView('timeline'); this.closeMobileMenu(); });
+        document.getElementById('notesViewBtnMobile').addEventListener('click', () => { this.switchView('notes'); this.closeMobileMenu(); });
+        document.getElementById('goalsViewBtnMobile').addEventListener('click', () => { this.switchView('goals'); this.closeMobileMenu(); });
+        document.getElementById('configViewBtnMobile').addEventListener('click', () => { this.switchView('config'); this.closeMobileMenu(); });
+        
         // Dark mode toggle
         document.getElementById('darkModeToggle').addEventListener('click', () => this.toggleDarkMode());
         
-        // Add task
+        // Add task - Desktop and Mobile
         document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
+        document.getElementById('addTaskBtnMobile').addEventListener('click', () => { this.openTaskModal(); this.closeMobileMenu(); });
         
         // Modal events
         document.getElementById('cancelBtn').addEventListener('click', () => this.closeTaskModal());
@@ -89,8 +102,11 @@ class TaskManager {
             this.updateWorkingDays(parseInt(e.target.value));
         });
         
-        // Search functionality
+        // Search functionality - Desktop and Mobile
         document.getElementById('searchInput').addEventListener('input', (e) => {
+            this.handleSearch(e.target.value);
+        });
+        document.getElementById('searchInputMobile').addEventListener('input', (e) => {
             this.handleSearch(e.target.value);
         });
         
@@ -2560,6 +2576,27 @@ class TaskManager {
         } catch (error) {
             console.error('Error deleting goal:', error);
         }
+    }
+
+    // Mobile menu functionality
+    toggleMobileMenu() {
+        const mobileMenu = document.getElementById('mobileMenu');
+        const isHidden = mobileMenu.classList.contains('hidden');
+        
+        if (isHidden) {
+            mobileMenu.classList.remove('hidden');
+            // Sync search values
+            const searchInput = document.getElementById('searchInput');
+            const searchInputMobile = document.getElementById('searchInputMobile');
+            searchInputMobile.value = searchInput.value;
+        } else {
+            mobileMenu.classList.add('hidden');
+        }
+    }
+
+    closeMobileMenu() {
+        const mobileMenu = document.getElementById('mobileMenu');
+        mobileMenu.classList.add('hidden');
     }
 }
 
