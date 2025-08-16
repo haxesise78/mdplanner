@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MD Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .drag-over {
+            @apply bg-blue-50 border-blue-300;
+        }
+        .dragging {
+            @apply opacity-50;
+        }
+        .task-card {
+            transition: all 0.2s ease;
+        }
+        .task-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .task-list-item {
+            transition: all 0.2s ease;
+        }
+        .task-list-item.dragging {
+            @apply opacity-50 bg-gray-100;
+        }
+        .list-drop-zone.drag-over {
+            @apply bg-blue-50;
+        }
+        .list-drop-zone.drag-over .border-dashed {
+            @apply border-blue-300 border-solid;
+        }
+        .list-section-header.drag-over {
+            @apply bg-blue-100;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700 transition-colors">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
+                <div class="flex items-center space-x-4">
+                    <!-- View Toggle -->
+                    <div class="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
+                        <button id="summaryViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">
+                            Summary
+                        </button>
+                        <button id="listViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                            List
+                        </button>
+                        <button id="boardViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                            Board
+                        </button>
+                        <button id="timelineViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                            Timeline
+                        </button>
+                        <button id="configViewBtn" class="px-3 py-1 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                            Config
+                        </button>
+                    </div>
+                    <!-- Dark Mode Toggle -->
+                    <button id="darkModeToggle" class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors" title="Toggle Dark Mode">
+                        <svg class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- Search -->
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="Search tasks..." class="w-64 pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    
+                    <!-- Add Task Button -->
+                    <button id="addTaskBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        + Add Task
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Loading State -->
+        <div id="loading" class="flex justify-center items-center h-64">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+
+        <!-- Summary View -->
+        <div id="summaryView" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Project Info -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <h2 id="projectName" class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Project Name</h2>
+                        <div id="projectDescription" class="prose prose-gray dark:prose-invert max-w-none">
+                            <p class="text-gray-600 dark:text-gray-400">Loading project description...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Stats -->
+                <div class="space-y-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Task Overview</h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Total Tasks</span>
+                                <span id="totalTasks" class="text-lg font-semibold text-gray-900 dark:text-gray-100">0</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Completed</span>
+                                <span id="completedTasks" class="text-lg font-semibold text-green-600 dark:text-green-400">0</span>
+                            </div>
+                            <div id="dynamicSectionCounts">
+                                <!-- Dynamic section counts will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="mt-6">
+                            <div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                <span>Progress</span>
+                                <span id="progressPercent">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                <div id="progressBar" class="bg-green-600 dark:bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section Breakdown -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Section Breakdown</h3>
+                        <div id="sectionBreakdown" class="space-y-3">
+                            <!-- Section counts will be populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Milestones -->
+                    <div id="milestonesSection" class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Milestones</h3>
+                        <div id="milestoneBreakdown" class="space-y-3">
+                            <!-- Milestone counts will be populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- List View -->
+        <div id="listView" class="hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Tasks</h2>
+                </div>
+                <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <div id="listContainer"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Board View -->
+        <div id="boardView" class="hidden">
+            <div id="boardContainer" class="grid gap-6">
+                <!-- Columns will be generated dynamically -->
+            </div>
+        </div>
+
+        <!-- Config View -->
+        <div id="configView" class="hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Project Configuration</h2>
+                    <button id="saveProjectConfig" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        Save Configuration
+                    </button>
+                </div>
+                
+                <!-- Basic Project Settings -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Project Settings</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Start Date</label>
+                                <input type="date" id="projectStartDate" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Working Days per Week</label>
+                                <select id="workingDays" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="5">5 days (Mon-Fri)</option>
+                                    <option value="6">6 days (Mon-Sat)</option>
+                                    <option value="7">7 days (Mon-Sun)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Project Stats -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Project Overview</h3>
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Total Tasks</span>
+                                <span id="configTotalTasks" class="font-medium text-gray-900 dark:text-gray-100">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Sections</span>
+                                <span id="configTotalSections" class="font-medium text-gray-900 dark:text-gray-100">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Assignees</span>
+                                <span id="configTotalAssignees" class="font-medium text-gray-900 dark:text-gray-100">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Tags</span>
+                                <span id="configTotalTags" class="font-medium text-gray-900 dark:text-gray-100">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Configuration Management -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Sections Management -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Board Sections</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Sections are read from your markdown board structure. Add new sections below to automatically create them in your markdown.</p>
+                        <div id="sectionsContainer" class="space-y-2 mb-4">
+                            <!-- Sections will be populated here -->
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="newSectionInput" placeholder="New section name" class="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <button type="button" id="addSectionBtn" class="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Assignees Management -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Team Members</h3>
+                        <div id="assigneesContainer" class="flex flex-wrap gap-2 mb-4">
+                            <!-- Assignees will be populated here -->
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="newAssigneeInput" placeholder="New assignee name" class="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <button type="button" id="addAssigneeBtn" class="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tags Management -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Project Tags</h3>
+                        <div id="tagsContainer" class="flex flex-wrap gap-2 mb-4">
+                            <!-- Tags will be populated here -->
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="newTagInput" placeholder="New tag name" class="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <button type="button" id="addTagBtn" class="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline View -->
+        <div id="timelineView" class="hidden">
+
+            <!-- Timeline Configuration -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Timeline Settings</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project Start Date</label>
+                        <input type="date" id="timelineStartDate" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" readonly>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Configure in Config tab</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Working Days per Week</label>
+                        <select id="timelineWorkingDays" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-100 dark:bg-gray-600 cursor-not-allowed" disabled>
+                            <option value="5">5 days (Mon-Fri)</option>
+                            <option value="6">6 days (Mon-Sat)</option>
+                            <option value="7">7 days (Mon-Sun)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Configure in Config tab</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Chart -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Project Timeline</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Tasks scheduled based on dependencies and effort</p>
+                </div>
+                
+
+                <!-- Timeline Content -->
+                <div class="p-6">
+                    <div id="timelineChart" class="overflow-x-auto">
+                        <div id="timelineContent" class="min-w-full">
+                            <!-- Timeline will be generated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="modalTitle" class="text-lg font-medium text-gray-900 dark:text-gray-100">Add Task</h3>
+            </div>
+            <form id="taskForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                    <input type="text" id="taskTitle" required class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Section</label>
+                        <select id="taskSection" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                        <select id="taskPriority" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">Select Priority</option>
+                            <option value="1">1 - Highest</option>
+                            <option value="2">2 - High</option>
+                            <option value="3">3 - Medium</option>
+                            <option value="4">4 - Low</option>
+                            <option value="5">5 - Lowest</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assignee</label>
+                        <select id="taskAssignee" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">Select Assignee</option>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Effort (days)</label>
+                        <input type="number" id="taskEffort" min="1" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                    <input type="datetime-local" id="taskDueDate" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Milestone</label>
+                    <input type="text" id="taskMilestone" placeholder="e.g., v1.0, Sprint 2, Alpha" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags</label>
+                    <select id="taskTags" multiple class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" style="min-height: 80px;">
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Blocked By</label>
+                    <div class="space-y-2">
+                        <div class="relative">
+                            <input type="text" id="taskBlockedBy" placeholder="Type to search tasks..." class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" autocomplete="off">
+                            <div id="dependencyDropdown" class="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto hidden">
+                                <!-- Autocomplete options will appear here -->
+                            </div>
+                        </div>
+                        <div id="selectedDependencies" class="flex flex-wrap gap-2">
+                            <!-- Selected dependencies will appear here as chips -->
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                    <textarea id="taskDescription" rows="3" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancelBtn" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        Save Task
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
