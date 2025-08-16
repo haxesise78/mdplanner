@@ -19,9 +19,30 @@ export interface Task {
   parentId?: string;
 }
 
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  type: 'enterprise' | 'project';
+  kpi: string;
+  startDate: string;
+  endDate: string;
+  status: 'planning' | 'on-track' | 'at-risk' | 'late' | 'success' | 'failed';
+}
+
 export interface ProjectInfo {
   name: string;
   description: string[];
+  notes: Note[];
+  goals: Goal[];
 }
 
 export interface ProjectConfig {
@@ -62,9 +83,13 @@ export class MarkdownParser {
     const lines = content.split('\n');
     let projectName = "Untitled Project";
     const description: string[] = [];
+    const notes: Note[] = [];
+    const goals: Goal[] = [];
     let i = 0;
     let foundFirstHeader = false;
     let inConfigSection = false;
+    let inNotesSection = false;
+    let inGoalsSection = false;
 
     while (i < lines.length) {
       const line = lines[i].trim();
@@ -77,28 +102,76 @@ export class MarkdownParser {
         continue;
       }
 
-      // Check if we're entering the Configurations section
+      // Check which section we're entering
       if (line === '# Configurations') {
         inConfigSection = true;
+        inNotesSection = false;
+        inGoalsSection = false;
         i++;
         continue;
       }
 
-      // Stop at sections like ## or # Board after we've found the first header
-      if ((line.startsWith('## ') || (line.startsWith('# ') && line !== '# Configurations')) && foundFirstHeader) {
+      if (line === '# Notes') {
+        inNotesSection = true;
+        inConfigSection = false;
+        inGoalsSection = false;
+        i++;
+        continue;
+      }
+
+      if (line === '# Goals') {
+        inGoalsSection = true;
+        inConfigSection = false;
+        inNotesSection = false;
+        i++;
+        continue;
+      }
+
+      // Stop at Board section or other sections
+      if ((line.startsWith('## ') || (line.startsWith('# ') && !['# Configurations', '# Notes', '# Goals'].includes(line))) && foundFirstHeader) {
+        if (inNotesSection) {
+          const notesResult = this.parseNotesSection(lines, i);
+          notes.push(...notesResult.notes);
+          i = notesResult.nextIndex;
+          inNotesSection = false;
+          continue;
+        }
+        if (inGoalsSection) {
+          const goalsResult = this.parseGoalsSection(lines, i);
+          goals.push(...goalsResult.goals);
+          i = goalsResult.nextIndex;
+          inGoalsSection = false;
+          continue;
+        }
         break;
       }
 
+      // Parse notes in Notes section
+      if (inNotesSection && line.startsWith('## ')) {
+        const notesResult = this.parseNotesSection(lines, i);
+        notes.push(...notesResult.notes);
+        i = notesResult.nextIndex;
+        continue;
+      }
+
+      // Parse goals in Goals section
+      if (inGoalsSection && line.startsWith('## ')) {
+        const goalsResult = this.parseGoalsSection(lines, i);
+        goals.push(...goalsResult.goals);
+        i = goalsResult.nextIndex;
+        continue;
+      }
+
       // Skip configuration section content for description
-      if (inConfigSection) {
+      if (inConfigSection || inNotesSection || inGoalsSection) {
         i++;
         continue;
       }
 
       // Collect description lines (skip empty lines at the start)
-      if (foundFirstHeader && line && !inConfigSection) {
+      if (foundFirstHeader && line && !inConfigSection && !inNotesSection && !inGoalsSection) {
         description.push(line);
-      } else if (foundFirstHeader && !line && description.length > 0 && !inConfigSection) {
+      } else if (foundFirstHeader && !line && description.length > 0 && !inConfigSection && !inNotesSection && !inGoalsSection) {
         // Keep empty lines if we already have content
         description.push('');
       }
@@ -106,7 +179,153 @@ export class MarkdownParser {
       i++;
     }
 
-    return { name: projectName, description };
+    return { name: projectName, description, notes, goals };
+  }
+
+  private parseNotesSection(lines: string[], startIndex: number): { notes: Note[], nextIndex: number } {
+    const notes: Note[] = [];
+    let i = startIndex;
+
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      
+      // Stop at next major section
+      if (line.startsWith('# ') && !line.startsWith('## ')) {
+        break;
+      }
+
+      // Parse note tab (## Note Title)
+      if (line.startsWith('## ')) {
+        const title = line.substring(3).trim();
+        const noteContent: string[] = [];
+        i++;
+
+        // Collect note content until next ## or #
+        while (i < lines.length) {
+          const contentLine = lines[i];
+          if (contentLine.trim().startsWith('## ') || contentLine.trim().startsWith('# ')) {
+            break;
+          }
+          noteContent.push(contentLine);
+          i++;
+        }
+
+        // Check for existing ID in comment format <!-- id: note_xxx -->
+        let noteId = this.generateNoteId();
+        let actualContent = noteContent.join('\n').trim();
+        
+        const idMatch = actualContent.match(/<!-- id: (note_\d+) -->/);
+        if (idMatch) {
+          noteId = idMatch[1];
+          // Remove the ID comment from content
+          actualContent = actualContent.replace(/<!-- id: note_\d+ -->\s*/, '').trim();
+        }
+        
+        notes.push({
+          id: noteId,
+          title,
+          content: actualContent,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        continue;
+      }
+
+      i++;
+    }
+
+    return { notes, nextIndex: i };
+  }
+
+  private parseGoalsSection(lines: string[], startIndex: number): { goals: Goal[], nextIndex: number } {
+    const goals: Goal[] = [];
+    let i = startIndex;
+
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      
+      // Stop at next major section
+      if (line.startsWith('# ') && !line.startsWith('## ')) {
+        break;
+      }
+
+      // Parse goal (## Goal Title {type: enterprise; kpi: 30% revenue; start: 2024-01-01; end: 2024-12-31; status: on-track})
+      if (line.startsWith('## ')) {
+        const goalMatch = line.match(/^## (.+?)\s*\{(.+)\}$/);
+        if (goalMatch) {
+          const [, title, configStr] = goalMatch;
+          const goalDescription: string[] = [];
+          i++;
+
+          // Collect goal description until next ## or #
+          while (i < lines.length) {
+            const contentLine = lines[i];
+            if (contentLine.trim().startsWith('## ') || contentLine.trim().startsWith('# ')) {
+              break;
+            }
+            if (contentLine.trim()) {
+              goalDescription.push(contentLine.trim());
+            }
+            i++;
+          }
+
+          // Check for existing ID in comment format <!-- id: goal_xxx -->
+          let goalId = this.generateGoalId();
+          let actualDescription = goalDescription.join('\n');
+          
+          const idMatch = actualDescription.match(/<!-- id: (goal_\d+) -->/);
+          if (idMatch) {
+            goalId = idMatch[1];
+            // Remove the ID comment from description
+            actualDescription = actualDescription.replace(/<!-- id: goal_\d+ -->\s*/, '').trim();
+          }
+
+          // Parse goal config
+          const goal: Goal = {
+            id: goalId,
+            title,
+            description: actualDescription,
+            type: 'project',
+            kpi: '',
+            startDate: '',
+            endDate: '',
+            status: 'planning'
+          };
+
+          // Parse config string
+          const configPairs = configStr.split(';');
+          for (const pair of configPairs) {
+            const [key, value] = pair.split(':').map(s => s.trim());
+            if (key && value) {
+              switch (key) {
+                case 'type':
+                  goal.type = value as 'enterprise' | 'project';
+                  break;
+                case 'kpi':
+                  goal.kpi = value;
+                  break;
+                case 'start':
+                  goal.startDate = value;
+                  break;
+                case 'end':
+                  goal.endDate = value;
+                  break;
+                case 'status':
+                  goal.status = value as Goal['status'];
+                  break;
+              }
+            }
+          }
+
+          goals.push(goal);
+          continue;
+        }
+      }
+
+      i++;
+    }
+
+    return { goals, nextIndex: i };
   }
 
   private parseMarkdown(content: string): Task[] {
@@ -277,6 +496,28 @@ export class MarkdownParser {
         content += `- ${tag}\n`;
       });
       content += "\n";
+    }
+
+    // Add notes section
+    if (projectInfo.notes && projectInfo.notes.length > 0) {
+      content += "# Notes\n\n";
+      for (const note of projectInfo.notes) {
+        content += `## ${note.title}\n\n`;
+        content += `<!-- id: ${note.id} -->\n`;
+        content += `${note.content}\n\n`;
+      }
+    }
+
+    // Add goals section
+    if (projectInfo.goals && projectInfo.goals.length > 0) {
+      content += "# Goals\n\n";
+      for (const goal of projectInfo.goals) {
+        content += `## ${goal.title} {type: ${goal.type}; kpi: ${goal.kpi}; start: ${goal.startDate}; end: ${goal.endDate}; status: ${goal.status}}\n\n`;
+        content += `<!-- id: ${goal.id} -->\n`;
+        if (goal.description) {
+          content += `${goal.description}\n\n`;
+        }
+      }
     }
     
     content += "# Board\n\n";
@@ -532,6 +773,34 @@ export class MarkdownParser {
     }
   }
 
+  generateNoteId(): string {
+    try {
+      const content = Deno.readTextFileSync(this.filePath);
+      const noteIdMatches = content.match(/<!-- id: note_(\d+) -->/g) || [];
+      const maxId = Math.max(0, ...noteIdMatches.map(match => {
+        const idMatch = match.match(/note_(\d+)/);
+        return idMatch ? parseInt(idMatch[1]) : 0;
+      }));
+      return `note_${maxId + 1}`;
+    } catch {
+      return 'note_1';
+    }
+  }
+
+  generateGoalId(): string {
+    try {
+      const content = Deno.readTextFileSync(this.filePath);
+      const goalIdMatches = content.match(/<!-- id: goal_(\d+) -->/g) || [];
+      const maxId = Math.max(0, ...goalIdMatches.map(match => {
+        const idMatch = match.match(/goal_(\d+)/);
+        return idMatch ? parseInt(idMatch[1]) : 0;
+      }));
+      return `goal_${maxId + 1}`;
+    } catch {
+      return 'goal_1';
+    }
+  }
+
   getSectionsFromBoard(): string[] {
     try {
       const content = Deno.readTextFileSync(this.filePath);
@@ -670,5 +939,169 @@ export class MarkdownParser {
     }
     
     return result.join('\n');
+  }
+
+  async addNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const projectInfo = await this.readProjectInfo();
+    const newNote: Note = {
+      ...note,
+      id: this.generateNoteId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    projectInfo.notes.push(newNote);
+    await this.saveProjectInfo(projectInfo);
+    return newNote.id;
+  }
+
+  async updateNote(noteId: string, updates: Partial<Omit<Note, 'id' | 'createdAt'>>): Promise<boolean> {
+    const projectInfo = await this.readProjectInfo();
+    const noteIndex = projectInfo.notes.findIndex(note => note.id === noteId);
+    
+    if (noteIndex === -1) return false;
+    
+    projectInfo.notes[noteIndex] = {
+      ...projectInfo.notes[noteIndex],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await this.saveProjectInfo(projectInfo);
+    return true;
+  }
+
+  async deleteNote(noteId: string): Promise<boolean> {
+    const projectInfo = await this.readProjectInfo();
+    const originalLength = projectInfo.notes.length;
+    projectInfo.notes = projectInfo.notes.filter(note => note.id !== noteId);
+    
+    if (projectInfo.notes.length !== originalLength) {
+      await this.saveProjectInfo(projectInfo);
+      return true;
+    }
+    return false;
+  }
+
+  async addGoal(goal: Omit<Goal, 'id'>): Promise<string> {
+    const projectInfo = await this.readProjectInfo();
+    const newGoal: Goal = {
+      ...goal,
+      id: this.generateGoalId()
+    };
+    
+    projectInfo.goals.push(newGoal);
+    await this.saveProjectInfo(projectInfo);
+    return newGoal.id;
+  }
+
+  async updateGoal(goalId: string, updates: Partial<Omit<Goal, 'id'>>): Promise<boolean> {
+    const projectInfo = await this.readProjectInfo();
+    const goalIndex = projectInfo.goals.findIndex(goal => goal.id === goalId);
+    
+    if (goalIndex === -1) return false;
+    
+    projectInfo.goals[goalIndex] = {
+      ...projectInfo.goals[goalIndex],
+      ...updates
+    };
+    
+    await this.saveProjectInfo(projectInfo);
+    return true;
+  }
+
+  async deleteGoal(goalId: string): Promise<boolean> {
+    const projectInfo = await this.readProjectInfo();
+    const originalLength = projectInfo.goals.length;
+    projectInfo.goals = projectInfo.goals.filter(goal => goal.id !== goalId);
+    
+    if (projectInfo.goals.length !== originalLength) {
+      await this.saveProjectInfo(projectInfo);
+      return true;
+    }
+    return false;
+  }
+
+  private async saveProjectInfo(projectInfo: ProjectInfo): Promise<void> {
+    const existingContent = await Deno.readTextFile(this.filePath);
+    const config = this.parseProjectConfig(existingContent);
+    const tasks = await this.readTasks();
+    
+    // Update the content with new project info
+    let content = `# ${projectInfo.name}\n\n`;
+    
+    // Add project description
+    if (projectInfo.description && projectInfo.description.length > 0) {
+      content += projectInfo.description.join('\n') + '\n\n';
+    }
+    
+    // Add configuration section
+    content += "# Configurations\n\n";
+    content += `Start Date: ${config.startDate || new Date().toISOString().split('T')[0]}\n`;
+    if (config.workingDaysPerWeek && config.workingDaysPerWeek !== 5) {
+      content += `Working Days: ${config.workingDaysPerWeek}\n`;
+    }
+    content += "\n";
+    
+    if (config.assignees && config.assignees.length > 0) {
+      content += "Assignees:\n";
+      config.assignees.forEach(assignee => {
+        content += `- ${assignee}\n`;
+      });
+      content += "\n";
+    }
+    
+    if (config.tags && config.tags.length > 0) {
+      content += "Tags:\n";
+      config.tags.forEach(tag => {
+        content += `- ${tag}\n`;
+      });
+      content += "\n";
+    }
+
+    // Add notes section
+    if (projectInfo.notes && projectInfo.notes.length > 0) {
+      content += "# Notes\n\n";
+      for (const note of projectInfo.notes) {
+        content += `## ${note.title}\n\n`;
+        content += `<!-- id: ${note.id} -->\n`;
+        if (note.content && note.content.trim()) {
+          content += `${note.content}\n\n`;
+        } else {
+          content += `\n`;
+        }
+      }
+    }
+
+    // Add goals section
+    if (projectInfo.goals && projectInfo.goals.length > 0) {
+      content += "# Goals\n\n";
+      for (const goal of projectInfo.goals) {
+        content += `## ${goal.title} {type: ${goal.type}; kpi: ${goal.kpi}; start: ${goal.startDate}; end: ${goal.endDate}; status: ${goal.status}}\n\n`;
+        content += `<!-- id: ${goal.id} -->\n`;
+        if (goal.description) {
+          content += `${goal.description}\n\n`;
+        }
+      }
+    }
+    
+    content += "# Board\n\n";
+
+    // Add existing board sections
+    const sections = this.getSectionsFromBoard();
+    
+    for (const section of sections) {
+      content += `## ${section}\n\n`;
+      
+      const sectionTasks = tasks.filter(task => task.section === section && !task.parentId);
+      
+      for (const task of sectionTasks) {
+        content += this.taskToMarkdown(task, 0);
+      }
+      
+      content += "\n";
+    }
+
+    await Deno.writeTextFile(this.filePath, content);
   }
 }

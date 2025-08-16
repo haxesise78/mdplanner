@@ -9,6 +9,14 @@ class TaskManager {
         this.currentView = 'summary';
         this.editingTask = null;
         this.selectedDependencies = [];
+        this.notes = [];
+        this.goals = [];
+        this.activeNote = null;
+        this.editingNote = null;
+        this.editingGoal = null;
+        this.currentGoalFilter = 'all';
+        this.noteEditMode = false;
+        this.autoSaveTimeout = null;
         this.init();
     }
 
@@ -27,6 +35,8 @@ class TaskManager {
         document.getElementById('listViewBtn').addEventListener('click', () => this.switchView('list'));
         document.getElementById('boardViewBtn').addEventListener('click', () => this.switchView('board'));
         document.getElementById('timelineViewBtn').addEventListener('click', () => this.switchView('timeline'));
+        document.getElementById('notesViewBtn').addEventListener('click', () => this.switchView('notes'));
+        document.getElementById('goalsViewBtn').addEventListener('click', () => this.switchView('goals'));
         document.getElementById('configViewBtn').addEventListener('click', () => this.switchView('config'));
         
         // Dark mode toggle
@@ -91,6 +101,40 @@ class TaskManager {
             }
         });
 
+        // Notes events
+        document.getElementById('addNoteBtn').addEventListener('click', () => this.openNoteModal());
+        document.getElementById('cancelNoteBtn').addEventListener('click', () => this.closeNoteModal());
+        document.getElementById('noteForm').addEventListener('submit', (e) => this.handleNoteSubmit(e));
+        document.getElementById('toggleEditBtn').addEventListener('click', () => this.toggleNoteEditMode());
+        document.getElementById('deleteNoteBtn').addEventListener('click', () => this.deleteCurrentNote());
+        
+        // Auto-save events for note editing
+        document.getElementById('activeNoteTitle').addEventListener('input', () => this.scheduleAutoSave());
+        document.getElementById('activeNoteEditor').addEventListener('input', () => this.scheduleAutoSave());
+        
+        // Goals events
+        document.getElementById('addGoalBtn').addEventListener('click', () => this.openGoalModal());
+        document.getElementById('cancelGoalBtn').addEventListener('click', () => this.closeGoalModal());
+        document.getElementById('goalForm').addEventListener('submit', (e) => this.handleGoalSubmit(e));
+        
+        // Goal filters
+        document.getElementById('allGoalsFilter').addEventListener('click', () => this.filterGoals('all'));
+        document.getElementById('enterpriseGoalsFilter').addEventListener('click', () => this.filterGoals('enterprise'));
+        document.getElementById('projectGoalsFilter').addEventListener('click', () => this.filterGoals('project'));
+        
+        // Modal close on background click
+        document.getElementById('noteModal').addEventListener('click', (e) => {
+            if (e.target.id === 'noteModal') {
+                this.closeNoteModal();
+            }
+        });
+        
+        document.getElementById('goalModal').addEventListener('click', (e) => {
+            if (e.target.id === 'goalModal') {
+                this.closeGoalModal();
+            }
+        });
+
         // Setup drag and drop for board view
         this.setupDragAndDrop();
     }
@@ -117,10 +161,12 @@ class TaskManager {
         const listBtn = document.getElementById('listViewBtn');
         const boardBtn = document.getElementById('boardViewBtn');
         const timelineBtn = document.getElementById('timelineViewBtn');
+        const notesBtn = document.getElementById('notesViewBtn');
+        const goalsBtn = document.getElementById('goalsViewBtn');
         const configBtn = document.getElementById('configViewBtn');
         
         // Reset all buttons
-        [summaryBtn, listBtn, boardBtn, timelineBtn, configBtn].forEach(btn => {
+        [summaryBtn, listBtn, boardBtn, timelineBtn, notesBtn, goalsBtn, configBtn].forEach(btn => {
             btn.classList.remove('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
             btn.classList.add('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
         });
@@ -130,6 +176,8 @@ class TaskManager {
         document.getElementById('listView').classList.add('hidden');
         document.getElementById('boardView').classList.add('hidden');
         document.getElementById('timelineView').classList.add('hidden');
+        document.getElementById('notesView').classList.add('hidden');
+        document.getElementById('goalsView').classList.add('hidden');
         document.getElementById('configView').classList.add('hidden');
         
         // Activate current view
@@ -151,6 +199,16 @@ class TaskManager {
             timelineBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
             document.getElementById('timelineView').classList.remove('hidden');
             this.renderTimelineView();
+        } else if (view === 'notes') {
+            notesBtn.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
+            notesBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
+            document.getElementById('notesView').classList.remove('hidden');
+            this.loadNotes();
+        } else if (view === 'goals') {
+            goalsBtn.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
+            goalsBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
+            document.getElementById('goalsView').classList.remove('hidden');
+            this.loadGoals();
         } else if (view === 'config') {
             configBtn.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
             configBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
@@ -1092,22 +1150,36 @@ class TaskManager {
         html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
         
         // Links
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
         
-        // Lists (simple)
-        html = html.replace(/^[\s]*\- (.+$)/gim, '<li class="text-gray-700 dark:text-gray-300 mb-1">$1</li>');
-        html = html.replace(/(<li.*<\/li>)/s, '<ul class="list-disc list-inside mb-3">$1</ul>');
-        
-        // Line breaks and paragraphs
-        html = html.split('\n\n').map(paragraph => {
-            if (paragraph.trim()) {
-                if (paragraph.includes('<h') || paragraph.includes('<ul') || paragraph.includes('<li')) {
-                    return paragraph;
-                }
-                return `<p class="text-gray-700 dark:text-gray-300 mb-3">${paragraph.replace(/\n/g, '<br>')}</p>`;
+        // Simple line processing for better text wrapping
+        html = html.split('\n').map(line => {
+            const trimmed = line.trim();
+            
+            // Skip empty lines
+            if (!trimmed) {
+                return '<br>';
             }
-            return '';
+            
+            // Handle list items
+            if (trimmed.startsWith('- ')) {
+                return `<li class="text-gray-700 dark:text-gray-300 mb-1">${trimmed.substring(2)}</li>`;
+            }
+            
+            // Skip already processed HTML
+            if (trimmed.startsWith('<')) {
+                return trimmed;
+            }
+            
+            // Wrap plain text in paragraphs
+            return `<p class="text-gray-700 dark:text-gray-300 mb-2">${trimmed}</p>`;
         }).join('');
+        
+        // Wrap consecutive list items
+        html = html.replace(/(<li[^>]*>.*?<\/li>)+/g, '<ul class="list-disc list-inside mb-3">$&</ul>');
+        
+        // Clean up consecutive <br> tags
+        html = html.replace(/(<br>\s*){2,}/g, '<br>');
         
         return html;
     }
@@ -2056,6 +2128,438 @@ class TaskManager {
     
     getTasksToRender() {
         return this.searchQuery ? this.filteredTasks : this.tasks;
+    }
+
+    // Notes functionality
+    async loadNotes() {
+        try {
+            const response = await fetch('/api/project');
+            const projectInfo = await response.json();
+            this.notes = projectInfo.notes || [];
+            this.renderNotesView();
+        } catch (error) {
+            console.error('Error loading notes:', error);
+            this.notes = [];
+            this.renderNotesView();
+        }
+    }
+
+    renderNotesView() {
+        const tabNav = document.getElementById('notesTabNav');
+        const emptyState = document.getElementById('emptyNotesState');
+        const activeContent = document.getElementById('activeNoteContent');
+
+        if (this.notes.length === 0) {
+            tabNav.innerHTML = '';
+            emptyState.classList.remove('hidden');
+            activeContent.classList.add('hidden');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        
+        // Render tabs using linear indexing for stable IDs
+        tabNav.innerHTML = this.notes.map((note, index) => `
+            <button class="py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                (this.activeNote === null && index === 0) || this.activeNote === index
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }" onclick="taskManager.selectNote(${index})">
+                ${note.title}
+            </button>
+        `).join('');
+
+        // Show first note if none selected
+        if (this.activeNote === null && this.notes.length > 0) {
+            this.activeNote = 0;
+        }
+
+        this.renderActiveNote();
+    }
+
+    renderActiveNote() {
+        const activeContent = document.getElementById('activeNoteContent');
+        const activeNote = this.notes[this.activeNote];
+        
+        if (!activeNote) {
+            activeContent.classList.add('hidden');
+            return;
+        }
+
+        activeContent.classList.remove('hidden');
+        document.getElementById('activeNoteTitle').value = activeNote.title;
+        document.getElementById('activeNoteEditor').value = activeNote.content;
+        
+        this.updateNoteDisplay();
+    }
+
+    updateNoteDisplay() {
+        const activeNote = this.notes[this.activeNote];
+        if (!activeNote) return;
+
+        // Convert markdown-like content to HTML with proper styling
+        let htmlContent = this.markdownToHtml(activeNote.content);
+        
+        // If content is empty or just whitespace, add a fallback
+        if (!htmlContent.trim()) {
+            htmlContent = '<p class="text-gray-500 dark:text-gray-400 italic">No content</p>';
+        }
+        
+        document.getElementById('activeNoteBody').innerHTML = htmlContent;
+    }
+
+    toggleNoteEditMode() {
+        this.noteEditMode = !this.noteEditMode;
+        const editor = document.getElementById('activeNoteEditor');
+        const display = document.getElementById('activeNoteBody');
+        const titleInput = document.getElementById('activeNoteTitle');
+
+        if (this.noteEditMode) {
+            // Switch to edit mode
+            editor.classList.remove('hidden');
+            display.classList.add('hidden');
+            titleInput.removeAttribute('readonly');
+            titleInput.classList.add('border-b', 'border-gray-300', 'dark:border-gray-600');
+            editor.focus();
+        } else {
+            // Switch to view mode
+            editor.classList.add('hidden');
+            display.classList.remove('hidden');
+            titleInput.setAttribute('readonly', 'true');
+            titleInput.classList.remove('border-b', 'border-gray-300', 'dark:border-gray-600');
+            this.updateNoteDisplay();
+        }
+    }
+
+    scheduleAutoSave() {
+        // Clear existing timeout
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+
+        // Schedule auto-save after 1 second of inactivity
+        this.autoSaveTimeout = setTimeout(() => {
+            this.autoSaveNote();
+        }, 1000);
+    }
+
+    async autoSaveNote() {
+        if (this.activeNote === null) return;
+
+        const title = document.getElementById('activeNoteTitle').value;
+        const content = document.getElementById('activeNoteEditor').value;
+        const activeNote = this.notes[this.activeNote];
+
+        // Only save if content has changed
+        if (title === activeNote.title && content === activeNote.content) {
+            return;
+        }
+
+        try {
+            // Show saving indicator
+            const indicator = document.getElementById('saveIndicator');
+            indicator.classList.remove('hidden');
+
+            await fetch(`/api/notes/${activeNote.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, content })
+            });
+
+            // Update local data
+            this.notes[this.activeNote].title = title;
+            this.notes[this.activeNote].content = content;
+
+            // Update display if in view mode
+            if (!this.noteEditMode) {
+                this.updateNoteDisplay();
+            }
+
+            // Update tab title
+            this.renderNotesView();
+
+            // Hide indicator after a short delay
+            setTimeout(() => {
+                indicator.classList.add('hidden');
+            }, 1000);
+
+        } catch (error) {
+            console.error('Error auto-saving note:', error);
+        }
+    }
+
+    selectNote(noteIndex) {
+        this.activeNote = noteIndex;
+        this.renderNotesView();
+    }
+
+    openNoteModal() {
+        this.editingNote = null;
+        document.getElementById('noteModalTitle').textContent = 'Add Note';
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteContent').value = '';
+        document.getElementById('noteModal').classList.remove('hidden');
+        document.getElementById('noteModal').classList.add('flex');
+    }
+
+    closeNoteModal() {
+        document.getElementById('noteModal').classList.add('hidden');
+        document.getElementById('noteModal').classList.remove('flex');
+    }
+
+    async handleNoteSubmit(e) {
+        e.preventDefault();
+        
+        const title = document.getElementById('noteTitle').value;
+        const content = document.getElementById('noteContent').value;
+        
+        try {
+            if (this.editingNote !== null) {
+                // Update existing note using backend ID
+                const note = this.notes[this.editingNote];
+                await fetch(`/api/notes/${note.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+            } else {
+                // Create new note
+                await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, content })
+                });
+            }
+            
+            this.closeNoteModal();
+            await this.loadNotes();
+        } catch (error) {
+            console.error('Error saving note:', error);
+        }
+    }
+
+
+    async deleteCurrentNote() {
+        if (this.activeNote === null) return;
+
+        if (!confirm('Are you sure you want to delete this note?')) return;
+
+        try {
+            const note = this.notes[this.activeNote];
+            await fetch(`/api/notes/${note.id}`, { method: 'DELETE' });
+            this.activeNote = null;
+            await this.loadNotes();
+        } catch (error) {
+            console.error('Error deleting note:', error);
+        }
+    }
+
+    // Goals functionality
+    async loadGoals() {
+        try {
+            const response = await fetch('/api/project');
+            const projectInfo = await response.json();
+            this.goals = projectInfo.goals || [];
+            this.renderGoalsView();
+        } catch (error) {
+            console.error('Error loading goals:', error);
+            this.goals = [];
+            this.renderGoalsView();
+        }
+    }
+
+    renderGoalsView() {
+        const container = document.getElementById('goalsContainer');
+        const emptyState = document.getElementById('emptyGoalsState');
+        
+        const filteredGoals = this.getFilteredGoals();
+
+        if (filteredGoals.length === 0) {
+            emptyState.classList.remove('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        
+        container.innerHTML = filteredGoals.map((goal, index) => `
+            <div class="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">${goal.title}</h3>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getTypeStyle(goal.type)}">
+                                ${goal.type}
+                            </span>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${this.getStatusStyle(goal.status)}">
+                                ${goal.status}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">${goal.description}</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <span class="font-medium text-gray-700 dark:text-gray-300">KPI:</span>
+                                <span class="text-gray-600 dark:text-gray-400">${goal.kpi}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-700 dark:text-gray-300">Start:</span>
+                                <span class="text-gray-600 dark:text-gray-400">${goal.startDate}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-700 dark:text-gray-300">End:</span>
+                                <span class="text-gray-600 dark:text-gray-400">${goal.endDate}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2 ml-4">
+                        <button onclick="taskManager.editGoal(${this.goals.indexOf(goal)})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                        <button onclick="taskManager.deleteGoal(${this.goals.indexOf(goal)})" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    getFilteredGoals() {
+        if (this.currentGoalFilter === 'all') {
+            return this.goals;
+        }
+        return this.goals.filter(goal => goal.type === this.currentGoalFilter);
+    }
+
+    getTypeStyle(type) {
+        return type === 'enterprise' 
+            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    }
+
+    getStatusStyle(status) {
+        const styles = {
+            'planning': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+            'on-track': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+            'at-risk': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+            'late': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+            'success': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+            'failed': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+        };
+        return styles[status] || styles['planning'];
+    }
+
+    filterGoals(type) {
+        console.log('filterGoals called with type:', type);
+        this.currentGoalFilter = type;
+        
+        // Update filter button styles
+        const filters = ['allGoalsFilter', 'enterpriseGoalsFilter', 'projectGoalsFilter'];
+        filters.forEach(filterId => {
+            const btn = document.getElementById(filterId);
+            if ((filterId === 'allGoalsFilter' && type === 'all') ||
+                (filterId === 'enterpriseGoalsFilter' && type === 'enterprise') ||
+                (filterId === 'projectGoalsFilter' && type === 'project')) {
+                btn.className = 'px-3 py-1 rounded-md text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
+            } else {
+                btn.className = 'px-3 py-1 rounded-md text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100';
+            }
+        });
+        
+        console.log('About to render goals with filter:', this.currentGoalFilter);
+        this.renderGoalsView();
+    }
+
+    openGoalModal() {
+        this.editingGoal = null;
+        document.getElementById('goalModalTitle').textContent = 'Add Goal';
+        document.getElementById('goalTitle').value = '';
+        document.getElementById('goalType').value = 'project';
+        document.getElementById('goalStatus').value = 'planning';
+        document.getElementById('goalKpi').value = '';
+        document.getElementById('goalStartDate').value = '';
+        document.getElementById('goalEndDate').value = '';
+        document.getElementById('goalDescription').value = '';
+        document.getElementById('goalModal').classList.remove('hidden');
+        document.getElementById('goalModal').classList.add('flex');
+    }
+
+    closeGoalModal() {
+        document.getElementById('goalModal').classList.add('hidden');
+        document.getElementById('goalModal').classList.remove('flex');
+    }
+
+    async handleGoalSubmit(e) {
+        e.preventDefault();
+        
+        const goalData = {
+            title: document.getElementById('goalTitle').value,
+            type: document.getElementById('goalType').value,
+            status: document.getElementById('goalStatus').value,
+            kpi: document.getElementById('goalKpi').value,
+            startDate: document.getElementById('goalStartDate').value,
+            endDate: document.getElementById('goalEndDate').value,
+            description: document.getElementById('goalDescription').value
+        };
+        
+        try {
+            if (this.editingGoal !== null) {
+                // Update existing goal using backend ID
+                const goal = this.goals[this.editingGoal];
+                await fetch(`/api/goals/${goal.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(goalData)
+                });
+            } else {
+                // Create new goal
+                await fetch('/api/goals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(goalData)
+                });
+            }
+            
+            this.closeGoalModal();
+            await this.loadGoals();
+            // Force re-render with current filter
+            this.renderGoalsView();
+        } catch (error) {
+            console.error('Error saving goal:', error);
+        }
+    }
+
+    editGoal(goalIndex) {
+        const goal = this.goals[goalIndex];
+        if (!goal) return;
+
+        this.editingGoal = goalIndex;
+        document.getElementById('goalModalTitle').textContent = 'Edit Goal';
+        document.getElementById('goalTitle').value = goal.title;
+        document.getElementById('goalType').value = goal.type;
+        document.getElementById('goalStatus').value = goal.status;
+        document.getElementById('goalKpi').value = goal.kpi;
+        document.getElementById('goalStartDate').value = goal.startDate;
+        document.getElementById('goalEndDate').value = goal.endDate;
+        document.getElementById('goalDescription').value = goal.description;
+        document.getElementById('goalModal').classList.remove('hidden');
+        document.getElementById('goalModal').classList.add('flex');
+    }
+
+    async deleteGoal(goalIndex) {
+        if (!confirm('Are you sure you want to delete this goal?')) return;
+
+        try {
+            const goal = this.goals[goalIndex];
+            await fetch(`/api/goals/${goal.id}`, { method: 'DELETE' });
+            await this.loadGoals();
+        } catch (error) {
+            console.error('Error deleting goal:', error);
+        }
     }
 }
 

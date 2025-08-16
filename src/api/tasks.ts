@@ -179,6 +179,98 @@ export class TaskAPI {
         }
       }
 
+      // Notes API endpoints
+      // POST /api/notes
+      if (method === "POST" && pathParts.length === 2 && pathParts[1] === "notes") {
+        const body = await req.json();
+        const noteId = await this.parser.addNote(body);
+        return new Response(JSON.stringify({ id: noteId }), {
+          status: 201,
+          headers,
+        });
+      }
+
+      // PUT /api/notes/:id
+      if (method === "PUT" && pathParts.length === 3 && pathParts[1] === "notes") {
+        const noteId = pathParts[2];
+        const updates = await req.json();
+        const success = await this.parser.updateNote(noteId, updates);
+        
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), { headers });
+        } else {
+          return new Response(JSON.stringify({ error: "Note not found" }), {
+            status: 404,
+            headers,
+          });
+        }
+      }
+
+      // DELETE /api/notes/:id
+      if (method === "DELETE" && pathParts.length === 3 && pathParts[1] === "notes") {
+        const noteId = pathParts[2];
+        const success = await this.parser.deleteNote(noteId);
+        
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), { headers });
+        } else {
+          return new Response(JSON.stringify({ error: "Note not found" }), {
+            status: 404,
+            headers,
+          });
+        }
+      }
+
+      // Goals API endpoints
+      // GET /api/goals
+      if (method === "GET" && pathParts.length === 2 && pathParts[1] === "goals") {
+        const projectInfo = await this.parser.readProjectInfo();
+        return new Response(JSON.stringify(projectInfo.goals), {
+          headers,
+        });
+      }
+
+      // POST /api/goals
+      if (method === "POST" && pathParts.length === 2 && pathParts[1] === "goals") {
+        const body = await req.json();
+        const goalId = await this.parser.addGoal(body);
+        return new Response(JSON.stringify({ id: goalId }), {
+          status: 201,
+          headers,
+        });
+      }
+
+      // PUT /api/goals/:id
+      if (method === "PUT" && pathParts.length === 3 && pathParts[1] === "goals") {
+        const goalId = pathParts[2];
+        const updates = await req.json();
+        const success = await this.parser.updateGoal(goalId, updates);
+        
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), { headers });
+        } else {
+          return new Response(JSON.stringify({ error: "Goal not found" }), {
+            status: 404,
+            headers,
+          });
+        }
+      }
+
+      // DELETE /api/goals/:id
+      if (method === "DELETE" && pathParts.length === 3 && pathParts[1] === "goals") {
+        const goalId = pathParts[2];
+        const success = await this.parser.deleteGoal(goalId);
+        
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), { headers });
+        } else {
+          return new Response(JSON.stringify({ error: "Goal not found" }), {
+            status: 404,
+            headers,
+          });
+        }
+      }
+
       return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
         headers,

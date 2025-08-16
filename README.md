@@ -10,6 +10,8 @@ A modern task management system that uses markdown files as the database, built 
   - List view with drag-and-drop task organization
   - Kanban board view with customizable sections
   - Timeline view for project scheduling
+  - Notes section with tabbed note-taking interface
+  - Goals tracking with enterprise and project goals
   - Configuration management interface
 - **Rich Task Management**:
   - Task creation, editing, and deletion
@@ -19,7 +21,25 @@ A modern task management system that uses markdown files as the database, built 
   - Due dates and effort estimation
   - Tags and assignee management
   - Markdown description support
-  - Miletone support
+  - Milestone support
+- **Notes Management**:
+  - **Tabbed Interface**: Clean tab-based navigation for organizing multiple notes
+  - **Horizontal Scrolling**: Automatic horizontal scroll when you have many note tabs
+  - **Inline Editing**: Click-to-edit functionality with seamless view/edit mode switching
+  - **Auto-Save**: Automatic saving with 1-second debounce to prevent data loss
+  - **Markdown Support**: Full markdown rendering with proper dark mode styling
+  - **Linear IDs**: Simple sequential IDs (note_1, note_2, etc.) for easy reference
+  - **Real-time Updates**: Instant UI updates when creating, editing, or deleting notes
+  - **Full CRUD Operations**: Create, read, update, and delete notes via REST API
+- **Goals Tracking**:
+  - **Dual Goal Types**: Support for both enterprise-level and project-specific goals
+  - **KPI Tracking**: Define and monitor Key Performance Indicators for each goal
+  - **Timeline Management**: Set start and end dates with visual date tracking
+  - **Status Management**: Track progress with 6 status levels (planning, on-track, at-risk, late, success, failed)
+  - **Advanced Filtering**: Filter goals by type (enterprise/project) and status with real-time UI updates
+  - **Linear IDs**: Simple sequential IDs (goal_1, goal_2, etc.) for easy reference
+  - **Rich Metadata**: Store detailed descriptions, success criteria, and progress notes
+  - **Visual Status Indicators**: Color-coded status badges and type labels
 - **Dynamic Configuration**:
   - Customizable board sections
   - Project team members management
@@ -111,6 +131,35 @@ Tags:
 - Feature
 - Enhancement
 
+# Notes
+
+## Project Setup Notes
+
+<!-- id: note_1 -->
+These are notes about setting up the project environment.
+Key points to remember:
+- Use Deno for the backend
+- TailwindCSS for styling
+
+## Meeting Notes - Aug 16
+
+<!-- id: note_2 -->
+Discussed the new features:
+- Notes section with tabs
+- Goals tracking with KPIs
+
+# Goals
+
+## Increase User Engagement {type: enterprise; kpi: 25% increase in daily active users; start: 2025-01-01; end: 2025-12-31; status: on-track}
+
+<!-- id: goal_1 -->
+Focus on improving user experience and adding new features that keep users engaged with the platform.
+
+## Complete MVP Release {type: project; kpi: All core features implemented; start: 2025-08-01; end: 2025-10-31; status: on-track}
+
+<!-- id: goal_2 -->
+Release the minimum viable product with task management, notes, and goals functionality.
+
 # Board
 
 ## Ideas
@@ -144,6 +193,53 @@ Tasks can include configuration within `{}` brackets:
 - **priority**: `1-5` - Priority level (1 = highest, 5 = lowest)
 - **effort**: `3` - Estimated effort in days
 - **blocked_by**: `[task-1, task-2]` - Dependencies (task IDs)
+
+### Notes Configuration
+
+Notes are stored under the `# Notes` section with each note as a level 2 heading:
+
+```markdown
+## Note Title
+
+<!-- id: note_1 -->
+Note content goes here...
+Can include markdown formatting, lists, and rich text.
+```
+
+**Note Features:**
+- **Linear IDs**: Sequential numbering (note_1, note_2, note_3, etc.)
+- **Markdown Content**: Full markdown support with proper rendering
+- **Auto-Save**: Changes saved automatically with 1-second debounce
+- **Inline Editing**: Click title or content to edit directly
+- **Tab Navigation**: Easy switching between multiple notes
+- **Horizontal Scroll**: Tabs scroll horizontally when too many to fit
+
+### Goals Configuration
+
+Goals are stored under the `# Goals` section with metadata in the heading:
+
+```markdown
+## Goal Title {type: enterprise; kpi: Success metric; start: 2025-01-01; end: 2025-12-31; status: on-track}
+
+<!-- id: goal_1 -->
+Goal description and details go here.
+```
+
+**Goal Features:**
+- **Linear IDs**: Sequential numbering (goal_1, goal_2, goal_3, etc.)
+- **Dual Types**: Enterprise (company-wide) and Project (specific initiative) goals
+- **Status Tracking**: 6 comprehensive status levels for precise progress monitoring
+- **KPI Integration**: Define measurable success criteria
+- **Timeline Management**: Track start/end dates with visual indicators
+- **Advanced Filtering**: Real-time filtering by type and status
+- **Rich Descriptions**: Support for detailed goal documentation
+
+Goal configuration options:
+- **type**: `enterprise` or `project` - Goal classification
+- **kpi**: Success measurement criteria (e.g., "25% increase in revenue", "100% test coverage")
+- **start**: Start date in YYYY-MM-DD format
+- **end**: End date in YYYY-MM-DD format
+- **status**: `planning`, `on-track`, `at-risk`, `late`, `success`, or `failed`
 
 ## Development
 
@@ -198,6 +294,40 @@ Complete dark theme support with:
 - Automatic detection of system preference
 - Manual toggle option
 - Consistent styling across all views and components
+
+### Notes & Goals Technical Details
+
+**Linear ID System:**
+- Sequential numbering for both notes (note_1, note_2) and goals (goal_1, goal_2)
+- Frontend uses array indices for UI navigation
+- Backend API uses stored IDs for data operations
+- Automatic ID generation based on existing highest ID
+
+**Auto-Save Implementation:**
+- 1-second debounce timer to prevent excessive saves
+- Real-time content synchronization with backend
+- Graceful error handling and retry logic
+- Preserves content integrity during editing sessions
+
+**REST API Endpoints:**
+```
+GET    /api/notes       # Retrieve all notes
+POST   /api/notes       # Create new note
+PUT    /api/notes/:id   # Update existing note
+DELETE /api/notes/:id   # Delete note
+
+GET    /api/goals       # Retrieve all goals
+POST   /api/goals       # Create new goal
+PUT    /api/goals/:id   # Update existing goal
+DELETE /api/goals/:id   # Delete goal
+```
+
+**UI Features:**
+- Tabbed interface with horizontal scrolling overflow
+- Inline editing with seamless view/edit mode transitions
+- Real-time filtering and search capabilities
+- Responsive design with dark mode consistency
+- Visual status indicators and type badges
 
 ## Screenshots
 
