@@ -74,7 +74,15 @@
             
             <!-- Desktop header -->
             <div class="hidden md:flex justify-between items-center h-16">
-                <h1 class="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
+                    <!-- File Operations (only in desktop app) -->
+                    <div id="fileOperations" class="">
+                        <button id="openFileBtn" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600">
+                            📁 Open File
+                        </button>
+                    </div>
+                </div>
                 <div class="flex items-center space-x-2 lg:space-x-4">
                     <!-- View Toggle - responsive -->
                     <div class="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
@@ -163,6 +171,13 @@
                     <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
+                </div>
+                
+                <!-- Mobile file operations (only in desktop app) -->
+                <div id="fileOperationsMobile" class="">
+                    <button id="openFileBtnMobile" class="w-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors text-sm px-3 py-2 rounded border border-gray-300 dark:border-gray-600 mb-2">
+                        📁 Open File
+                    </button>
                 </div>
                 
                 <!-- Mobile add task -->

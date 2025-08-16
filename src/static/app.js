@@ -22,6 +22,7 @@ class TaskManager {
 
     async init() {
         this.initDarkMode();
+        this.checkTauriEnvironment();
         this.bindEvents();
         await this.loadProjectConfig(); // Load config first
         await this.loadSections(); // Load sections from board
@@ -57,6 +58,16 @@ class TaskManager {
         // Add task - Desktop and Mobile
         document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
         document.getElementById('addTaskBtnMobile').addEventListener('click', () => { this.openTaskModal(); this.closeMobileMenu(); });
+        
+        // File operations - Desktop and Mobile (only in Tauri)
+        const openFileBtn = document.getElementById('openFileBtn');
+        const openFileBtnMobile = document.getElementById('openFileBtnMobile');
+        if (openFileBtn) {
+            openFileBtn.addEventListener('click', () => this.openFile());
+        }
+        if (openFileBtnMobile) {
+            openFileBtnMobile.addEventListener('click', () => { this.openFile(); this.closeMobileMenu(); });
+        }
         
         // Modal events
         document.getElementById('cancelBtn').addEventListener('click', () => this.closeTaskModal());
@@ -2597,6 +2608,154 @@ class TaskManager {
     closeMobileMenu() {
         const mobileMenu = document.getElementById('mobileMenu');
         mobileMenu.classList.add('hidden');
+    }
+
+    // Tauri-specific functionality
+    checkTauriEnvironment() {
+        console.log('=== Tauri Environment Check ===');
+        console.log('window.__TAURI__:', window.__TAURI__);
+        console.log('window.__TAURI_INTERNALS__:', window.__TAURI_INTERNALS__);
+        console.log('window.isTauri:', window.isTauri);
+        console.log('User Agent:', navigator.userAgent);
+        console.log('Location:', window.location.href);
+        
+        // Check multiple ways Tauri might be detected
+        const hasTauri = window.__TAURI__ || window.__TAURI_INTERNALS__ || window.isTauri;
+        
+        if (hasTauri) {
+            console.log('✅ Tauri detected! Showing file operations.');
+            // Show file operations
+            const fileOperations = document.getElementById('fileOperations');
+            const fileOperationsMobile = document.getElementById('fileOperationsMobile');
+            if (fileOperations) {
+                fileOperations.classList.remove('hidden');
+                console.log('✅ Desktop file operations shown');
+            }
+            if (fileOperationsMobile) {
+                fileOperationsMobile.classList.remove('hidden');
+                console.log('✅ Mobile file operations shown');
+            }
+            
+            // Listen for file selection events
+            this.setupTauriListeners();
+        } else {
+            console.log('❌ Tauri NOT detected. Running in web browser.');
+            console.log('But we will still show the buttons for testing...');
+            
+            // For debugging: show buttons anyway
+            const fileOperations = document.getElementById('fileOperations');
+            const fileOperationsMobile = document.getElementById('fileOperationsMobile');
+            if (fileOperations) {
+                fileOperations.classList.remove('hidden');
+                console.log('🔧 Desktop file operations shown for debugging');
+            }
+            if (fileOperationsMobile) {
+                fileOperationsMobile.classList.remove('hidden');
+                console.log('🔧 Mobile file operations shown for debugging');
+            }
+        }
+        
+        console.log('=== End Tauri Check ===');
+    }
+
+    setupTauriListeners() {
+        // Simple approach - call restart directly after file selection
+        console.log('Tauri listeners setup - simplified approach');
+    }
+
+    async handleFileSelected(filePath) {
+        try {
+            // Show loading state
+            const loading = document.getElementById('loading');
+            if (loading) loading.classList.remove('hidden');
+            
+            // Hide all views
+            this.hideAllViews();
+            
+            // Restart server with new file
+            const { invoke } = window.__TAURI_INTERNALS__;
+            await invoke('restart_server_with_file', { filePath });
+            
+            // Wait a moment for server to restart
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Reload all data
+            await this.loadProjectConfig();
+            await this.loadSections();
+            await this.loadTasks();
+            await this.loadNotes();
+            await this.loadGoals();
+            
+            // Hide loading and show summary view
+            if (loading) loading.classList.add('hidden');
+            this.switchView('summary');
+            
+            // Show success message
+            this.showNotification(`Loaded file: ${filePath.split('/').pop()}`, 'success');
+            
+        } catch (error) {
+            console.error('Error loading file:', error);
+            this.showNotification('Error loading file: ' + error, 'error');
+        }
+    }
+
+    hideAllViews() {
+        const views = ['summaryView', 'listView', 'boardView', 'timelineView', 'notesView', 'goalsView', 'configView'];
+        views.forEach(viewId => {
+            const view = document.getElementById(viewId);
+            if (view) view.classList.add('hidden');
+        });
+    }
+
+    showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ${
+            type === 'success' ? 'bg-green-500 text-white' :
+            type === 'error' ? 'bg-red-500 text-white' :
+            'bg-blue-500 text-white'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+
+    async openFile() {
+        console.log('openFile called');
+        
+        // Check if we're running in Tauri
+        if (!window.__TAURI_INTERNALS__) {
+            alert('File operations are only available in the desktop app.');
+            return;
+        }
+
+        try {
+            console.log('Attempting to access Tauri invoke...');
+            
+            // In Tauri 2, we need to access the invoke function through the proper path
+            const { invoke } = window.__TAURI_INTERNALS__;
+            
+            if (!invoke) {
+                console.error('Invoke function not found in __TAURI_INTERNALS__');
+                console.log('Available keys in __TAURI_INTERNALS__:', Object.keys(window.__TAURI_INTERNALS__));
+                alert('Invoke function not available. Check console for details.');
+                return;
+            }
+            
+            console.log('Found invoke function, calling select_markdown_file...');
+            const result = await invoke('select_markdown_file');
+            console.log('select_markdown_file result:', result);
+            
+        } catch (error) {
+            console.error('Error opening file:', error);
+            console.error('Error details:', error.message, error.stack);
+            alert('Error opening file: ' + error.message);
+        }
     }
 }
 
