@@ -180,6 +180,14 @@ export class TaskAPI {
       }
 
       // Notes API endpoints
+      // GET /api/notes
+      if (method === "GET" && pathParts.length === 2 && pathParts[1] === "notes") {
+        const projectInfo = await this.parser.readProjectInfo();
+        return new Response(JSON.stringify(projectInfo.notes), {
+          headers,
+        });
+      }
+
       // POST /api/notes
       if (method === "POST" && pathParts.length === 2 && pathParts[1] === "notes") {
         const body = await req.json();
@@ -213,6 +221,22 @@ export class TaskAPI {
         
         if (success) {
           return new Response(JSON.stringify({ success: true }), { headers });
+        } else {
+          return new Response(JSON.stringify({ error: "Note not found" }), {
+            status: 404,
+            headers,
+          });
+        }
+      }
+
+      // GET /api/notes/:id
+      if (method === "GET" && pathParts.length === 3 && pathParts[1] === "notes") {
+        const noteId = pathParts[2];
+        const projectInfo = await this.parser.readProjectInfo();
+        const note = projectInfo.notes.find(n => n.id === noteId);
+        
+        if (note) {
+          return new Response(JSON.stringify(note), { headers });
         } else {
           return new Response(JSON.stringify({ error: "Note not found" }), {
             status: 404,
@@ -263,6 +287,22 @@ export class TaskAPI {
         
         if (success) {
           return new Response(JSON.stringify({ success: true }), { headers });
+        } else {
+          return new Response(JSON.stringify({ error: "Goal not found" }), {
+            status: 404,
+            headers,
+          });
+        }
+      }
+
+      // GET /api/goals/:id
+      if (method === "GET" && pathParts.length === 3 && pathParts[1] === "goals") {
+        const goalId = pathParts[2];
+        const projectInfo = await this.parser.readProjectInfo();
+        const goal = projectInfo.goals.find(g => g.id === goalId);
+        
+        if (goal) {
+          return new Response(JSON.stringify(goal), { headers });
         } else {
           return new Response(JSON.stringify({ error: "Goal not found" }), {
             status: 404,

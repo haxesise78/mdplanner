@@ -343,15 +343,34 @@ Complete dark theme support with:
 
 **REST API Endpoints:**
 ```
-GET    /api/notes       # Retrieve all notes
-POST   /api/notes       # Create new note
-PUT    /api/notes/:id   # Update existing note
-DELETE /api/notes/:id   # Delete note
+# Tasks
+GET    /api/tasks              # Retrieve all tasks
+GET    /api/tasks/:id          # Retrieve specific task
+POST   /api/tasks              # Create new task
+PUT    /api/tasks/:id          # Update existing task
+DELETE /api/tasks/:id          # Delete task
+PATCH  /api/tasks/:id/move     # Move task to different section
 
-GET    /api/goals       # Retrieve all goals
-POST   /api/goals       # Create new goal
-PUT    /api/goals/:id   # Update existing goal
-DELETE /api/goals/:id   # Delete goal
+# Project Management
+GET    /api/project            # Retrieve project info (name, description, notes, goals)
+GET    /api/project/config     # Retrieve project configuration
+POST   /api/project/config     # Update project configuration
+GET    /api/project/sections   # Retrieve board sections
+POST   /api/project/rewrite    # Rewrite tasks with custom sections
+
+# Notes
+GET    /api/notes              # Retrieve all notes
+GET    /api/notes/:id          # Retrieve specific note
+POST   /api/notes              # Create new note
+PUT    /api/notes/:id          # Update existing note
+DELETE /api/notes/:id          # Delete note
+
+# Goals
+GET    /api/goals              # Retrieve all goals
+GET    /api/goals/:id          # Retrieve specific goal
+POST   /api/goals              # Create new goal
+PUT    /api/goals/:id          # Update existing goal
+DELETE /api/goals/:id          # Delete goal
 ```
 
 **UI Features:**
