@@ -1242,14 +1242,17 @@ class TaskManager {
     applyFullscreenMode() {
         const header = document.querySelector('header');
         const main = document.querySelector('main');
+        const body = document.body;
         const fullscreenIcon = document.getElementById('fullscreenIcon');
         const exitFullscreenIcon = document.getElementById('exitFullscreenIcon');
         
         if (this.isFullscreen) {
-            // Hide header and remove container constraints
-            header.classList.add('hidden');
+            // Keep header visible but remove container constraints from main
             main.classList.remove('max-w-7xl', 'mx-auto', 'px-2', 'sm:px-4', 'lg:px-8', 'py-4', 'sm:py-8');
-            main.classList.add('w-full', 'min-h-screen', 'p-0');
+            main.classList.add('w-full', 'h-screen', 'p-2', 'overflow-auto');
+            
+            // Make body fill the screen
+            body.classList.add('h-screen', 'overflow-hidden');
             
             // Update button icons
             fullscreenIcon.classList.add('hidden');
@@ -1258,10 +1261,12 @@ class TaskManager {
             // Add escape key listener
             this.bindEscapeKey();
         } else {
-            // Show header and restore container constraints
-            header.classList.remove('hidden');
+            // Restore container constraints
             main.classList.add('max-w-7xl', 'mx-auto', 'px-2', 'sm:px-4', 'lg:px-8', 'py-4', 'sm:py-8');
-            main.classList.remove('w-full', 'min-h-screen', 'p-0');
+            main.classList.remove('w-full', 'h-screen', 'p-2', 'overflow-auto');
+            
+            // Restore body
+            body.classList.remove('h-screen', 'overflow-hidden');
             
             // Update button icons
             fullscreenIcon.classList.remove('hidden');

@@ -55,6 +55,16 @@
             display: none;
         }
         
+        /* Canvas height styles */
+        .canvas-height {
+            height: 600px; /* Default height */
+        }
+        
+        /* Fullscreen mode - make canvas use available space */
+        body.h-screen .canvas-height {
+            height: calc(100vh - 180px); /* Subtract space for header (~64px), title (~64px), controls (~52px) */
+        }
+        
         /* Canvas styles */
         .sticky-note {
             position: absolute;
@@ -679,7 +689,7 @@
                 </div>
                 
                 <!-- Canvas Container -->
-                <div id="canvasContainer" class="relative overflow-hidden bg-white dark:bg-gray-900" style="height: 600px;">
+                <div id="canvasContainer" class="relative overflow-hidden bg-white dark:bg-gray-900 canvas-height">
                     <div id="canvasViewport" class="absolute inset-0 cursor-grab">
                         <div id="canvasGrid" class="absolute inset-0 opacity-20 hidden">
                             <!-- Grid pattern will be generated here -->
@@ -731,7 +741,7 @@
                 </div>
                 
                 <!-- Mindmap Container -->
-                <div id="mindmapContainer" class="relative overflow-hidden bg-white dark:bg-gray-900" style="height: 600px;">
+                <div id="mindmapContainer" class="relative overflow-hidden bg-white dark:bg-gray-900 canvas-height">
                     <div id="mindmapViewport" class="absolute inset-0 cursor-grab">
                         <div id="mindmapContent" class="relative w-full h-full">
                             <div id="mindmapEmptyState" class="flex items-center justify-center h-full">

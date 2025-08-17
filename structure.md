@@ -1,7 +1,6 @@
 # MD Planner
 
 Markdown powered task manager tool.
-
 <!-- Configurations -->
 # Configurations
 
@@ -42,47 +41,50 @@ Bonjour Monde !
 ## 100 MAU {type: project; kpi: onboard 100 MAU; start: 2025-08-17; end: 2026-01-01; status: planning}
 
 <!-- id: goal_1 -->
+
 ## Maintenance plan and new release weekly {type: enterprise; kpi: Release every weeks; start: 2025-08-17; end: 2025-12-01; status: on-track}
 
 <!-- id: goal_2 -->
 
 
+## New New Goal {type: project; kpi: Stop Breaking the app every 5 min; start: 2025-08-15; end: 2025-08-18; status: on-track}
+
+<!-- id: goal_3 -->
+
 <!-- Canvas -->
 # Canvas
 
-## Risk analysis<br><br> {color: pink; position: {x: 790, y: 90}}
+## Sticky note {color: pink; position: {x: 790, y: 90}; size: {width: 0, height: 0}}
 
 <!-- id: sticky_note_1 -->
+Risk analysis<br><br>
 
-## Sticky note {color: pink; position: {x: 897, y: 140}; size: {width: 144, height: 76}}
+## Sticky note {color: pink; position: {x: 897, y: 140}; size: {width: 122, height: 76}}
 
 <!-- id: sticky_note_2 -->
-Markdown Backup<br><br>cool !<br><br>Fixed !<br><br>
+Markdown Backup<br><br>cool !<br><br>Fixed !<br><br><br><br>
 
-## Sticky note {color: green; position: {x: 288, y: 86}; size: {width: 144, height: 76}}
+## TODOs<br><br><br><br> {color: green; position: {x: 288, y: 86}; size: {width: 144, height: 76}}
 
 <!-- id: sticky_note_3 -->
-TODOs<br><br><br>
 
-## Sticky note {color: yellow; position: {x: 426, y: 221}; size: {width: 404, height: 340}}
+## Sticky note {color: yellow; position: {x: 426, y: 221}; size: {width: 0, height: 0}}
 
 <!-- id: sticky_note_4 -->
-Package the whole thing<br><br>1. Simplify Usage<br>
+Package the whole thing<br><br>1. Simplify Usage<br><br><br>
 
-## Sticky note {color: orange; position: {x: 865, y: 317}}
+## New New Note<br><br> {color: orange; position: {x: 865, y: 317}}
 
 <!-- id: sticky_note_5 -->
-New New Note<br>
 
-## Sticky note {color: blue; position: {x: 160, y: 277}; size: {width: 172, height: 76}}
+## It is sticky !<br><br><br> {color: blue; position: {x: 160, y: 277}; size: {width: 144, height: 76}}
 
 <!-- id: sticky_note_6 -->
-It is sticky !<br>
 
-## Sticky note {color: green; position: {x: 208, y: 409}; size: {width: 122, height: 76}}
+## Sticky note {color: green; position: {x: 208, y: 409}; size: {width: 0, height: 0}}
 
 <!-- id: sticky_note_7 -->
-Panning<br><br><br><br><br><br>
+Panning<br><br><br><br><br><br><br><br><br><br><br>
 
 <!-- Mindmap -->
 # Mindmap
@@ -116,3 +118,4 @@ Panning<br><br><br><br><br><br>
 
 - [ ] (test1) Simple Test Task {tag: [Test]; due_date: 2025-08-22; assignee: Test User; priority: 1; effort: 1; milestone: Test}
   Test description
+
