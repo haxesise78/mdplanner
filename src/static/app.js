@@ -17,9 +17,9 @@ class TaskManager {
         this.currentGoalFilter = 'all';
         this.noteEditMode = false;
         this.autoSaveTimeout = null;
-        this.postIts = [];
+        this.stickyNotes = [];
         this.mindmaps = [];
-        this.selectedPostItColor = 'yellow';
+        this.selectedStickyNoteColor = 'yellow';
         this.canvasZoom = 1;
         this.canvasOffset = { x: 0, y: 0 };
         this.mindmapZoom = 1;
@@ -32,7 +32,6 @@ class TaskManager {
 
     async init() {
         this.initDarkMode();
-        this.checkTauriEnvironment();
         this.bindEvents();
         await this.loadProjectConfig(); // Load config first
         await this.loadSections(); // Load sections from board
@@ -73,7 +72,7 @@ class TaskManager {
         document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
         document.getElementById('addTaskBtnMobile').addEventListener('click', () => { this.openTaskModal(); this.closeMobileMenu(); });
         
-        // File operations - Desktop and Mobile (only in Tauri)
+        // File operations - Desktop and Mobile
         const openFileBtn = document.getElementById('openFileBtn');
         const openFileBtnMobile = document.getElementById('openFileBtnMobile');
         if (openFileBtn) {
@@ -82,6 +81,23 @@ class TaskManager {
         if (openFileBtnMobile) {
             openFileBtnMobile.addEventListener('click', () => { this.openFile(); this.closeMobileMenu(); });
         }
+        
+        // Import/Export operations
+        document.getElementById('importExportBtn').addEventListener('click', () => this.toggleImportExportDropdown());
+        document.getElementById('exportTasksBtn').addEventListener('click', () => this.exportTasksCSV());
+        document.getElementById('importTasksBtn').addEventListener('click', () => this.importTasksCSV());
+        document.getElementById('exportReportBtn').addEventListener('click', () => this.exportPDFReport());
+        
+        // Mobile import/export
+        document.getElementById('exportTasksBtnMobile').addEventListener('click', () => { this.exportTasksCSV(); this.closeMobileMenu(); });
+        document.getElementById('importTasksBtnMobile').addEventListener('click', () => { this.importTasksCSV(); this.closeMobileMenu(); });
+        document.getElementById('exportReportBtnMobile').addEventListener('click', () => { this.exportPDFReport(); this.closeMobileMenu(); });
+        
+        // CSV file input
+        document.getElementById('csvFileInput').addEventListener('change', (e) => this.handleCSVFileSelect(e));
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => this.handleImportExportDropdownClick(e));
         
         // Modal events
         document.getElementById('cancelBtn').addEventListener('click', () => this.closeTaskModal());
@@ -164,9 +180,9 @@ class TaskManager {
         document.getElementById('projectGoalsFilter').addEventListener('click', () => this.filterGoals('project'));
         
         // Canvas events
-        document.getElementById('addPostItBtn').addEventListener('click', () => this.openPostItModal());
-        document.getElementById('cancelPostItBtn').addEventListener('click', () => this.closePostItModal());
-        document.getElementById('postItForm').addEventListener('submit', (e) => this.handlePostItSubmit(e));
+        document.getElementById('addStickyNoteBtn').addEventListener('click', () => this.openStickyNoteModal());
+        document.getElementById('cancelStickyNoteBtn').addEventListener('click', () => this.closeStickyNoteModal());
+        document.getElementById('stickyNoteForm').addEventListener('submit', (e) => this.handleStickyNoteSubmit(e));
         document.getElementById('canvasZoom').addEventListener('input', (e) => this.updateCanvasZoom(e.target.value));
         
         // Mindmap events
@@ -179,12 +195,12 @@ class TaskManager {
         document.getElementById('mindmapZoom').addEventListener('input', (e) => this.updateMindmapZoom(e.target.value));
         document.getElementById('mindmapLayout').addEventListener('change', (e) => this.updateMindmapLayout(e.target.value));
         
-        // Color picker events for post-it modal
+        // Color picker events for sticky note modal
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('color-option')) {
                 document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
                 e.target.classList.add('selected');
-                this.selectedPostItColor = e.target.dataset.color;
+                this.selectedStickyNoteColor = e.target.dataset.color;
             }
         });
         
@@ -201,9 +217,9 @@ class TaskManager {
             }
         });
         
-        document.getElementById('postItModal').addEventListener('click', (e) => {
-            if (e.target.id === 'postItModal') {
-                this.closePostItModal();
+        document.getElementById('stickyNoteModal').addEventListener('click', (e) => {
+            if (e.target.id === 'stickyNoteModal') {
+                this.closeStickyNoteModal();
             }
         });
         
@@ -2826,8 +2842,8 @@ class TaskManager {
     // Canvas functionality
     async loadCanvas() {
         try {
-            const response = await fetch('/api/canvas/postits');
-            this.postIts = await response.json();
+            const response = await fetch('/api/canvas/sticky_notes');
+            this.stickyNotes = await response.json();
             this.renderCanvas();
         } catch (error) {
             console.error('Error loading canvas:', error);
@@ -2838,38 +2854,38 @@ class TaskManager {
         const canvasContent = document.getElementById('canvasContent');
         canvasContent.innerHTML = '';
         
-        this.postIts.forEach(postIt => {
-            const postItElement = this.createPostItElement(postIt);
-            canvasContent.appendChild(postItElement);
+        this.stickyNotes.forEach(stickyNote => {
+            const stickyNoteElement = this.createStickyNoteElement(stickyNote);
+            canvasContent.appendChild(stickyNoteElement);
         });
     }
 
-    createPostItElement(postIt) {
+    createStickyNoteElement(stickyNote) {
         const element = document.createElement('div');
-        element.className = `post-it ${postIt.color}`;
-        element.style.left = `${postIt.position.x}px`;
-        element.style.top = `${postIt.position.y}px`;
-        element.dataset.id = postIt.id;
+        element.className = `sticky-note ${stickyNote.color}`;
+        element.style.left = `${stickyNote.position.x}px`;
+        element.style.top = `${stickyNote.position.y}px`;
+        element.dataset.id = stickyNote.id;
         
-        if (postIt.size) {
-            element.style.width = `${postIt.size.width}px`;
-            element.style.height = `${postIt.size.height}px`;
+        if (stickyNote.size) {
+            element.style.width = `${stickyNote.size.width}px`;
+            element.style.height = `${stickyNote.size.height}px`;
         }
         
-        element.setAttribute('data-postit-id', postIt.id);
+        element.setAttribute('data-sticky-note-id', stickyNote.id);
         element.innerHTML = `
-            <div class="post-it-controls">
-                <button onclick="taskManager.editPostIt('${postIt.id}')">✏️</button>
-                <button onclick="taskManager.deletePostIt('${postIt.id}')">🗑️</button>
+            <div class="sticky-note-controls">
+                <button onclick="taskManager.editStickyNote('${stickyNote.id}')">✏️</button>
+                <button onclick="taskManager.deleteStickyNote('${stickyNote.id}')">🗑️</button>
             </div>
-            <div contenteditable="true" onblur="taskManager.updatePostItContent('${postIt.id}', this.innerText)">${postIt.content}</div>
+            <div contenteditable="true" onblur="taskManager.updateStickyNoteContent('${stickyNote.id}', this.innerText)">${stickyNote.content}</div>
         `;
         
-        this.makePostItDraggable(element);
+        this.makeStickyNoteDraggable(element);
         return element;
     }
 
-    makePostItDraggable(element) {
+    makeStickyNoteDraggable(element) {
         let isDragging = false;
         let startX, startY, startLeft, startTop;
         
@@ -2895,7 +2911,7 @@ class TaskManager {
             if (isDragging) {
                 isDragging = false;
                 element.classList.remove('dragging');
-                this.updatePostItPosition(element.dataset.id, {
+                this.updateStickyNotePosition(element.dataset.id, {
                     x: parseInt(element.style.left),
                     y: parseInt(element.style.top)
                 });
@@ -2903,42 +2919,42 @@ class TaskManager {
         });
     }
 
-    openPostItModal() {
-        document.getElementById('postItModal').classList.remove('hidden');
-        document.getElementById('postItModal').classList.add('flex');
-        document.getElementById('postItContent').value = '';
-        this.selectedPostItColor = 'yellow';
+    openStickyNoteModal() {
+        document.getElementById('stickyNoteModal').classList.remove('hidden');
+        document.getElementById('stickyNoteModal').classList.add('flex');
+        document.getElementById('stickyNoteContent').value = '';
+        this.selectedStickyNoteColor = 'yellow';
         document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
         document.querySelector('[data-color="yellow"]').classList.add('selected');
     }
 
-    closePostItModal() {
-        document.getElementById('postItModal').classList.add('hidden');
-        document.getElementById('postItModal').classList.remove('flex');
+    closeStickyNoteModal() {
+        document.getElementById('stickyNoteModal').classList.add('hidden');
+        document.getElementById('stickyNoteModal').classList.remove('flex');
     }
 
-    async handlePostItSubmit(e) {
+    async handleStickyNoteSubmit(e) {
         e.preventDefault();
-        const content = document.getElementById('postItContent').value;
+        const content = document.getElementById('stickyNoteContent').value.trim();
         
-        console.log('Creating post-it with content:', content);
-        console.log('Selected color:', this.selectedPostItColor);
+        console.log('Creating sticky note with content:', content);
+        console.log('Selected color:', this.selectedStickyNoteColor);
         
         if (!content.trim()) {
-            alert('Please enter some content for the post-it');
+            alert('Please enter some content for the sticky note');
             return;
         }
         
         try {
             const postData = {
                 content: content.trim(),
-                color: this.selectedPostItColor || 'yellow',
+                color: this.selectedStickyNoteColor || 'yellow',
                 position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 }
             };
             
             console.log('Sending POST request with data:', postData);
             
-            const response = await fetch('/api/canvas/postits', {
+            const response = await fetch('/api/canvas/sticky_notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(postData)
@@ -2948,23 +2964,23 @@ class TaskManager {
             
             if (response.ok) {
                 const result = await response.json();
-                console.log('Post-it created successfully:', result);
-                this.closePostItModal();
+                console.log('Sticky note created successfully:', result);
+                this.closeStickyNoteModal();
                 this.loadCanvas();
             } else {
                 const error = await response.text();
-                console.error('Failed to create post-it:', error);
-                alert('Failed to create post-it: ' + error);
+                console.error('Failed to create sticky note:', error);
+                alert('Failed to create sticky note: ' + error);
             }
         } catch (error) {
-            console.error('Error creating post-it:', error);
-            alert('Error creating post-it: ' + error.message);
+            console.error('Error creating sticky note:', error);
+            alert('Error creating sticky note: ' + error.message);
         }
     }
 
-    editPostIt(id) {
-        // Find the post-it element and focus on its content area
-        const element = document.querySelector(`[data-postit-id="${id}"] div[contenteditable]`);
+    editStickyNote(id) {
+        // Find the sticky note element and focus on its content area
+        const element = document.querySelector(`[data-sticky-note-id="${id}"] div[contenteditable]`);
         if (element) {
             element.focus();
             // Select all text for easy editing
@@ -2976,37 +2992,37 @@ class TaskManager {
         }
     }
 
-    async updatePostItContent(id, content) {
+    async updateStickyNoteContent(id, content) {
         try {
-            await fetch(`/api/canvas/postits/${id}`, {
+            await fetch(`/api/canvas/sticky_notes/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
+                body: JSON.stringify({ content: content.trim() })
             });
         } catch (error) {
-            console.error('Error updating post-it:', error);
+            console.error('Error updating sticky note:', error);
         }
     }
 
-    async updatePostItPosition(id, position) {
+    async updateStickyNotePosition(id, position) {
         try {
-            await fetch(`/api/canvas/postits/${id}`, {
+            await fetch(`/api/canvas/sticky_notes/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ position })
             });
         } catch (error) {
-            console.error('Error updating post-it position:', error);
+            console.error('Error updating sticky note position:', error);
         }
     }
 
-    async deletePostIt(id) {
-        if (confirm('Delete this post-it?')) {
+    async deleteStickyNote(id) {
+        if (confirm('Delete this sticky note?')) {
             try {
-                await fetch(`/api/canvas/postits/${id}`, { method: 'DELETE' });
+                await fetch(`/api/canvas/sticky_notes/${id}`, { method: 'DELETE' });
                 this.loadCanvas();
             } catch (error) {
-                console.error('Error deleting post-it:', error);
+                console.error('Error deleting sticky note:', error);
             }
         }
     }
@@ -3455,6 +3471,119 @@ class TaskManager {
 
     exportMindmapCSV() {
         window.open('/api/export/csv/mindmaps', '_blank');
+    }
+
+    // Import/Export functionality
+    toggleImportExportDropdown() {
+        const dropdown = document.getElementById('importExportDropdown');
+        dropdown.classList.toggle('hidden');
+    }
+
+    handleImportExportDropdownClick(e) {
+        const dropdown = document.getElementById('importExportDropdown');
+        const button = document.getElementById('importExportBtn');
+        
+        if (!button.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.add('hidden');
+        }
+    }
+
+    exportTasksCSV() {
+        // Create a temporary link to download the CSV
+        const link = document.createElement('a');
+        link.href = '/api/export/csv/tasks';
+        link.download = 'tasks.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Close dropdown
+        document.getElementById('importExportDropdown').classList.add('hidden');
+    }
+
+    importTasksCSV() {
+        // Trigger the hidden file input
+        document.getElementById('csvFileInput').click();
+        
+        // Close dropdown
+        document.getElementById('importExportDropdown').classList.add('hidden');
+    }
+
+    exportPDFReport() {
+        // Open the PDF report in a new window for printing/saving
+        window.open('/api/export/pdf/report?auto-print=true', '_blank');
+        
+        // Close dropdown
+        document.getElementById('importExportDropdown').classList.add('hidden');
+    }
+
+    async handleCSVFileSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.name.endsWith('.csv')) {
+            alert('Please select a CSV file.');
+            return;
+        }
+
+        try {
+            const csvContent = await this.readFileAsText(file);
+            console.log('CSV content to import:', csvContent);
+            
+            const response = await fetch('/api/import/csv/tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: csvContent
+            });
+
+            console.log('Import response status:', response.status);
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Import result:', result);
+                alert(`Successfully imported ${result.imported} task(s).`);
+                
+                // Reload tasks to show imported ones
+                console.log('Reloading tasks...');
+                await this.loadTasks();
+                console.log('Tasks after reload:', this.tasks);
+                
+                // Also reload project info and sections to ensure everything is fresh
+                await this.loadProjectInfo();
+                await this.loadSections();
+                
+                // Refresh the current view to show imported tasks
+                console.log('Refreshing current view:', this.currentView);
+                this.renderTasks();
+            } else {
+                const error = await response.json();
+                console.error('Import error:', error);
+                
+                // Show a more user-friendly error message
+                if (error.error && error.error.includes('temporarily disabled')) {
+                    alert('⚠️ CSV Import Temporarily Disabled\n\nThe import feature has been disabled due to a bug that corrupts data.\n\nAlternatives:\n• Add tasks manually using the + Task button\n• Export your current data first, then edit the markdown file directly\n• Use the export features which work correctly');
+                } else {
+                    alert(`Import failed: ${error.error || 'Unknown error'}`);
+                }
+            }
+        } catch (error) {
+            console.error('Error importing CSV:', error);
+            alert('Error importing CSV file. Please check the file format.');
+        }
+
+        // Clear the file input
+        e.target.value = '';
+    }
+
+    readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsText(file);
+        });
     }
 }
 

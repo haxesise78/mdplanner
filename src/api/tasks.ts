@@ -335,64 +335,74 @@ export class TaskAPI {
       }
 
       // Canvas API endpoints
-      // GET /api/canvas/postits
+      // GET /api/canvas/sticky_notes
       if (
         method === "GET" && pathParts.length === 3 &&
-        pathParts[1] === "canvas" && pathParts[2] === "postits"
+        pathParts[1] === "canvas" && pathParts[2] === "sticky_notes"
       ) {
         const projectInfo = await this.parser.readProjectInfo();
-        return new Response(JSON.stringify(projectInfo.postIts), {
+        console.debug(projectInfo);
+        return new Response(JSON.stringify(projectInfo.stickyNotes), {
           headers,
         });
       }
 
-      // POST /api/canvas/postits
+      // POST /api/canvas/sticky_notes
       if (
         method === "POST" && pathParts.length === 3 &&
-        pathParts[1] === "canvas" && pathParts[2] === "postits"
+        pathParts[1] === "canvas" && pathParts[2] === "sticky_notes"
       ) {
         const body = await req.json();
-        const postItId = await this.parser.addPostIt(body);
-        return new Response(JSON.stringify({ id: postItId }), {
+        const stickyNoteId = await this.parser.addStickyNote(body);
+        return new Response(JSON.stringify({ id: stickyNoteId }), {
           status: 201,
           headers,
         });
       }
 
-      // PUT /api/canvas/postits/:id
+      // PUT /api/canvas/sticky_notes/:id
       if (
         method === "PUT" && pathParts.length === 4 &&
-        pathParts[1] === "canvas" && pathParts[2] === "postits"
+        pathParts[1] === "canvas" && pathParts[2] === "sticky_notes"
       ) {
-        const postItId = pathParts[3];
+        const stickyNoteId = pathParts[3];
         const updates = await req.json();
-        const success = await this.parser.updatePostIt(postItId, updates);
+        const success = await this.parser.updateStickyNote(
+          stickyNoteId,
+          updates,
+        );
 
         if (success) {
           return new Response(JSON.stringify({ success: true }), { headers });
         } else {
-          return new Response(JSON.stringify({ error: "Post-it not found" }), {
-            status: 404,
-            headers,
-          });
+          return new Response(
+            JSON.stringify({ error: "Sticky note not found" }),
+            {
+              status: 404,
+              headers,
+            },
+          );
         }
       }
 
-      // DELETE /api/canvas/postits/:id
+      // DELETE /api/canvas/sticky_notes/:id
       if (
         method === "DELETE" && pathParts.length === 4 &&
-        pathParts[1] === "canvas" && pathParts[2] === "postits"
+        pathParts[1] === "canvas" && pathParts[2] === "sticky_notes"
       ) {
-        const postItId = pathParts[3];
-        const success = await this.parser.deletePostIt(postItId);
+        const stickyNoteId = pathParts[3];
+        const success = await this.parser.deleteStickyNote(stickyNoteId);
 
         if (success) {
           return new Response(JSON.stringify({ success: true }), { headers });
         } else {
-          return new Response(JSON.stringify({ error: "Post-it not found" }), {
-            status: 404,
-            headers,
-          });
+          return new Response(
+            JSON.stringify({ error: "Sticky note not found" }),
+            {
+              status: 404,
+              headers,
+            },
+          );
         }
       }
 
@@ -502,7 +512,7 @@ export class TaskAPI {
         pathParts[3] === "canvas"
       ) {
         const projectInfo = await this.parser.readProjectInfo();
-        const csv = this.convertCanvasToCSV(projectInfo.postIts);
+        const csv = this.convertCanvasToCSV(projectInfo.stickyNotes);
         return new Response(csv, {
           headers: {
             ...headers,
@@ -529,6 +539,42 @@ export class TaskAPI {
         });
       }
 
+      // POST /api/import/csv/tasks
+      if (
+        method === "POST" && pathParts.length === 4 &&
+        pathParts[1] === "import" && pathParts[2] === "csv" &&
+        pathParts[3] === "tasks"
+      ) {
+        const body = await req.text();
+        const importedTasks = this.parseTasksCSV(body);
+        const existingTasks = await this.parser.readTasks();
+
+        // Filter out tasks that already exist by title to avoid duplicates
+        const existingTitles = new Set(existingTasks.map((t) => t.title));
+        const newTasks = importedTasks.filter((t) =>
+          !existingTitles.has(t.title)
+        );
+
+        if (newTasks.length === 0) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              imported: 0,
+              message: "No new tasks to import (all tasks already exist)",
+            }),
+            { headers },
+          );
+        }
+
+        // Use a safer direct markdown append method
+        const importedCount = await this.appendTasksToMarkdown(newTasks);
+
+        return new Response(
+          JSON.stringify({ success: true, imported: importedCount }),
+          { headers },
+        );
+      }
+
       // POST /api/import/csv/canvas
       if (
         method === "POST" && pathParts.length === 4 &&
@@ -536,12 +582,12 @@ export class TaskAPI {
         pathParts[3] === "canvas"
       ) {
         const body = await req.text();
-        const postIts = this.parseCanvasCSV(body);
+        const stickyNotes = this.parseCanvasCSV(body);
         const projectInfo = await this.parser.readProjectInfo();
-        projectInfo.postIts = postIts;
+        projectInfo.stickyNotes = stickyNotes;
         await this.parser.saveProjectInfo(projectInfo);
         return new Response(
-          JSON.stringify({ success: true, imported: postIts.length }),
+          JSON.stringify({ success: true, imported: stickyNotes.length }),
           { headers },
         );
       }
@@ -633,7 +679,7 @@ export class TaskAPI {
     return csv;
   }
 
-  private convertCanvasToCSV(postIts: any[]): string {
+  private convertCanvasToCSV(stickyNotes: any[]): string {
     const headers = [
       "ID",
       "Content",
@@ -645,15 +691,15 @@ export class TaskAPI {
     ];
     let csv = headers.join(",") + "\n";
 
-    for (const postIt of postIts) {
+    for (const stickyNote of stickyNotes) {
       const row = [
-        this.escapeCSV(postIt.id),
-        this.escapeCSV(postIt.content),
-        this.escapeCSV(postIt.color),
-        postIt.position.x.toString(),
-        postIt.position.y.toString(),
-        this.escapeCSV(postIt.size?.width?.toString() || ""),
-        this.escapeCSV(postIt.size?.height?.toString() || ""),
+        this.escapeCSV(stickyNote.id),
+        this.escapeCSV(stickyNote.content),
+        this.escapeCSV(stickyNote.color),
+        stickyNote.position.x.toString(),
+        stickyNote.position.y.toString(),
+        this.escapeCSV(stickyNote.size?.width?.toString() || ""),
+        this.escapeCSV(stickyNote.size?.height?.toString() || ""),
       ];
       csv += row.join(",") + "\n";
     }
@@ -689,18 +735,55 @@ export class TaskAPI {
     return csv;
   }
 
+  private parseTasksCSV(csvContent: string): Task[] {
+    const lines = csvContent.trim().split("\n");
+    if (lines.length < 2) return [];
+
+    const tasks: Task[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = this.parseCSVLine(lines[i]);
+      if (values.length >= 4) {
+        const task: Task = {
+          id: values[0] || `task_${Date.now()}_${i}`,
+          title: values[1] || "",
+          section: values[2] || "Backlog",
+          completed: values[3]?.toUpperCase() === "TRUE",
+          config: {
+            priority: values[4] ? parseInt(values[4]) : undefined,
+            assignee: values[5] || undefined,
+            due_date: values[6] || undefined,
+            effort: values[7] ? parseInt(values[7]) : undefined,
+            tag: values[8]
+              ? values[8].split(", ").filter((t) => t.trim())
+              : undefined,
+            blocked_by: values[9]
+              ? values[9].split(", ").filter((t) => t.trim())
+              : undefined,
+            milestone: values[10] || undefined,
+          },
+          description: values[11] ? [values[11]] : undefined,
+        };
+
+        tasks.push(task);
+      }
+    }
+
+    return tasks;
+  }
+
   private parseCanvasCSV(csvContent: string): any[] {
     const lines = csvContent.trim().split("\n");
     if (lines.length < 2) return [];
 
     const headers = lines[0].split(",");
-    const postIts = [];
+    const stickyNotes = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = this.parseCSVLine(lines[i]);
       if (values.length >= 5) {
-        const postIt = {
-          id: values[0] || `postit_${Date.now()}_${i}`,
+        const stickyNote = {
+          id: values[0] || `sticky_note_${Date.now()}_${i}`,
           content: values[1] || "",
           color: values[2] || "yellow",
           position: {
@@ -710,17 +793,17 @@ export class TaskAPI {
         };
 
         if (values[5] && values[6]) {
-          postIt.size = {
+          stickyNote.size = {
             width: parseInt(values[5]) || 200,
             height: parseInt(values[6]) || 150,
           };
         }
 
-        postIts.push(postIt);
+        stickyNotes.push(stickyNote);
       }
     }
 
-    return postIts;
+    return stickyNotes;
   }
 
   private flattenTasks(tasks: Task[]): Task[] {
@@ -1075,5 +1158,107 @@ export class TaskAPI {
     </script>
 </body>
 </html>`;
+  }
+
+  private async appendTasksToMarkdown(tasks: Task[]): Promise<number> {
+    try {
+      // Read the current markdown file
+      const currentContent = await Deno.readTextFile(this.parser.filePath);
+
+      // Find the Todo section and append tasks there
+      const lines = currentContent.split("\n");
+      let todoSectionIndex = -1;
+      let insertIndex = -1;
+
+      // Find the "## Todo" section
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === "## Todo") {
+          todoSectionIndex = i;
+          // Find the next section or end of file to insert before
+          for (let j = i + 1; j < lines.length; j++) {
+            if (lines[j].startsWith("## ") && lines[j].trim() !== "## Todo") {
+              insertIndex = j - 1;
+              // Skip backward over any empty lines
+              while (insertIndex > i && lines[insertIndex].trim() === "") {
+                insertIndex--;
+              }
+              insertIndex++; // Insert after the last task/content
+              break;
+            }
+          }
+          if (insertIndex === -1) {
+            insertIndex = lines.length;
+          }
+          break;
+        }
+      }
+
+      // If no Todo section found, we'll add it after the Board header
+      if (todoSectionIndex === -1) {
+        const boardIndex = lines.findIndex((line) => line.trim() === "# Board");
+        if (boardIndex !== -1) {
+          // Insert Todo section after Board header
+          lines.splice(boardIndex + 1, 0, "", "## Todo", "");
+          insertIndex = boardIndex + 4;
+        } else {
+          // Append at end if no Board section found
+          lines.push("", "<!-- Board -->", "# Board", "", "## Todo", "");
+          insertIndex = lines.length;
+        }
+      }
+
+      // Generate markdown for each task
+      const taskLines: string[] = [];
+      for (const task of tasks) {
+        const checkbox = task.completed ? "[x]" : "[ ]";
+        const configParts: string[] = [];
+
+        if (task.config.tag && task.config.tag.length > 0) {
+          configParts.push(`tag: [${task.config.tag.join(", ")}]`);
+        }
+        if (task.config.due_date) {
+          configParts.push(`due_date: ${task.config.due_date}`);
+        }
+        if (task.config.assignee) {
+          configParts.push(`assignee: ${task.config.assignee}`);
+        }
+        if (task.config.priority) {
+          configParts.push(`priority: ${task.config.priority}`);
+        }
+        if (task.config.effort) {
+          configParts.push(`effort: ${task.config.effort}`);
+        }
+        if (task.config.milestone) {
+          configParts.push(`milestone: ${task.config.milestone}`);
+        }
+        if (task.config.blocked_by && task.config.blocked_by.length > 0) {
+          configParts.push(`blocked_by: ${task.config.blocked_by.join(", ")}`);
+        }
+
+        const configStr = configParts.length > 0
+          ? ` {${configParts.join("; ")}}`
+          : "";
+        taskLines.push(`- ${checkbox} (${task.id}) ${task.title}${configStr}`);
+
+        // Add description if present
+        if (task.description && task.description.length > 0) {
+          task.description.forEach((desc) => {
+            taskLines.push(`  ${desc}`);
+          });
+        }
+        taskLines.push(""); // Empty line after each task
+      }
+
+      // Insert the new tasks
+      lines.splice(insertIndex, 0, ...taskLines);
+
+      // Write the updated content back
+      await Deno.writeTextFile(this.parser.filePath, lines.join("\n"));
+
+      return tasks.length;
+    } catch (error) {
+      console.error("Error appending tasks to markdown:", error);
+      return 0;
+    }
   }
 }

@@ -3,7 +3,6 @@
 Markdown powered task manager tool.
 
 
-
 <!-- Configurations -->
 # Configurations
 
@@ -54,19 +53,29 @@ Bonjour Monde !
 
 ## Risk analysis<br><br> {color: pink; position: {x: 790, y: 90}}
 
-<!-- id: postit_1 -->
+<!-- id: sticky_note_1 -->
 
-## Markdown Backup<br><br> {color: pink; position: {x: 830, y: 152}}
+## Sticky note {color: pink; position: {x: 897, y: 140}}
 
-<!-- id: postit_2 -->
+<!-- id: sticky_note_2 -->
+Markdown Backup
+
+cool !
+
+Fixed !
 
 ## TODOs<br><br> {color: green; position: {x: 288, y: 86}}
 
-<!-- id: postit_3 -->
+<!-- id: sticky_note_3 -->
 
 ## Package the whole thing<br><br>1. Simplify Usage<br><br> {color: yellow; position: {x: 336, y: 135}}
 
-<!-- id: postit_4 -->
+<!-- id: sticky_note_4 -->
+
+## Sticky note {color: orange; position: {x: 583, y: 311}}
+
+<!-- id: sticky_note_5 -->
+New New Note
 
 <!-- Mindmap -->
 # Mindmap
@@ -84,13 +93,20 @@ Bonjour Monde !
 # Board
 
 ## Todo
+- [ ] (demo1) Demo Task {tag: [Frontend]; due_date: 2025-08-20; assignee: Demo User; priority: 1; effort: 2; milestone: Demo}
+  This task demonstrates the working export and import functionality
 
-- [ ] (1) First Task {tag: [Backend]; due_date: 2025-08-18T01; assignee: John Doe; priority: 1; effort: 1; milestone: M1}
-  Testing the whole app
+- [ ] (import1) Imported Task 1 {tag: [Backend, API]; due_date: 2025-08-22; assignee: Test User; priority: 1; effort: 3; milestone: Sprint 1}
+  This is an imported test task
+
+- [ ] (import2) Imported Task 2 {tag: [Frontend]; due_date: 2025-08-25; assignee: Demo User; priority: 2; effort: 1; milestone: Sprint 1}
+  Another imported task
+
+- [ ] (test1) Simple Test Task {tag: [Test]; due_date: 2025-08-22; assignee: Test User; priority: 1; effort: 1; milestone: Test}
+  Test description
+
 
 ## In Progress
 
 
 ## Done
-
-

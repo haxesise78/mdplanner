@@ -12,6 +12,8 @@ A modern task management system that uses markdown files as the database, built 
   - Timeline view for project scheduling
   - Notes section with tabbed note-taking interface
   - Goals tracking with enterprise and project goals
+  - Canvas view for visual brainstorming with sticky notes
+  - Mindmap view for hierarchical idea organization
   - Configuration management interface
 - **Rich Task Management**:
   - Task creation, editing, and deletion
@@ -40,12 +42,28 @@ A modern task management system that uses markdown files as the database, built 
   - **Linear IDs**: Simple sequential IDs (goal_1, goal_2, etc.) for easy reference
   - **Rich Metadata**: Store detailed descriptions, success criteria, and progress notes
   - **Visual Status Indicators**: Color-coded status badges and type labels
+- **Canvas & Mindmap Views**:
+  - **Canvas**: Visual brainstorming with draggable sticky notes
+  - **Mindmap**: Hierarchical idea organization with tree and circular layouts
+  - **Interactive Elements**: Drag, resize, and color-code visual elements
+  - **Export Support**: CSV export for both canvas and mindmap data
+- **Import/Export System**:
+  - **CSV Import**: Import tasks from CSV files with full metadata support
+  - **CSV Export**: Export tasks, canvas sticky notes, and mindmaps to CSV
+  - **PDF Reports**: Generate single-page project reports for printing/sharing
+  - **Data Safety**: Smart duplicate prevention and data integrity protection
+  - **Batch Operations**: Import multiple tasks while preserving existing data
 - **Dynamic Configuration**:
   - Customizable board sections
   - Project team members management
   - Tag system for categorization
   - Working days and project timeline settings
-- **Dark Mode Support**: Complete dark theme implementation
+- **Advanced UI Features**:
+  - **Responsive Design**: Optimized for desktop devices
+  - **Compact Navigation**: Space-efficient navbar that fits standard screens
+  - **Dark Mode Support**: Complete dark theme with automatic system detection
+  - **Search Functionality**: Real-time task search across all views
+  - **Keyboard Shortcuts**: Efficient navigation and task management
 - **Drag & Drop**: Intuitive task movement between sections and reordering
 
 ## Quick Start
@@ -85,6 +103,100 @@ deno task start my-project.md
 ```bash
 deno task dev docs/structure.md
 ```
+
+## Import/Export Guide
+
+MD Planner provides comprehensive import/export functionality for data portability and backup.
+
+### CSV Import/Export
+
+#### Accessing Import/Export Features
+
+**Desktop Interface:**
+1. Click the import/export icon (⬇⬆) in the top navigation bar
+2. Select from dropdown options:
+   - **Export Tasks CSV**: Download current tasks as CSV
+   - **Import Tasks CSV**: Upload CSV file to import tasks
+   - **Export PDF Report**: Generate printable project report
+
+#### CSV Format Specification
+
+The CSV format supports all task metadata and follows this structure:
+
+```csv
+ID,Title,Section,Completed,Priority,Assignee,Due Date,Effort,Tags,Blocked By,Milestone,Description
+task1,Setup Development Environment,Todo,FALSE,1,Alice Smith,2025-08-20,2,"Backend, Infrastructure","","Sprint 1","Install and configure development tools"
+task2,Design UI Mockups,In Progress,FALSE,2,Bob Johnson,2025-08-22,3,"Frontend, Design","task1","Sprint 1","Create wireframes and mockups"
+task3,Database Schema,Done,TRUE,1,Alice Smith,2025-08-18,1,"Backend, Database","","Sprint 1","Define database structure"
+```
+
+**Field Descriptions:**
+- **ID**: Unique identifier (will be shown as `(task1)` in markdown)
+- **Title**: Task name/title
+- **Section**: Board section (`Todo`, `In Progress`, `Done`, or custom sections)
+- **Completed**: `TRUE` or `FALSE`
+- **Priority**: Number 1-5 (1 = highest priority)
+- **Assignee**: Team member name (must match configured assignees)
+- **Due Date**: ISO date format `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM`
+- **Effort**: Estimated effort in days (integer)
+- **Tags**: Comma-separated list in quotes (e.g., `"Frontend, UI, Bug"`)
+- **Blocked By**: Comma-separated task IDs in quotes (e.g., `"task1, task2"`)
+- **Milestone**: Milestone name/identifier
+- **Description**: Detailed task description
+
+#### Import Process
+
+1. **Prepare CSV File**: Create or export tasks using the format above
+2. **Import via UI**:
+   - Desktop: Click import/export icon → "Import Tasks CSV"
+3. **File Selection**: Choose your CSV file
+4. **Smart Processing**:
+   - Validates CSV format and data
+   - Checks for duplicate tasks (by title)
+   - Preserves existing tasks and data
+   - Safely appends new tasks to Todo section
+5. **Confirmation**: Shows number of tasks imported
+6. **Auto-Refresh**: UI automatically updates to show new tasks
+
+#### Export Features
+
+**Tasks CSV Export:**
+- Exports all tasks with complete metadata
+- Includes custom task configurations and descriptions
+- Preserves task IDs, priorities, assignments, and dependencies
+- Compatible format for re-importing or external analysis
+
+**PDF Report Export:**
+- Generates single-page project overview
+- Includes project statistics and task breakdown
+- Section-wise progress visualization
+- Goals and milestone tracking
+- Optimized for printing and sharing
+- Opens in new window for easy printing/saving
+
+#### Data Safety Features
+
+- **Duplicate Prevention**: Automatically detects existing tasks by title
+- **Non-Destructive Import**: Preserves all existing tasks, notes, goals, and configuration
+- **Data Validation**: Validates CSV format and required fields
+- **Error Handling**: Clear error messages for invalid data
+- **Backup Recommendation**: Always export before major imports
+
+#### Common Use Cases
+
+1. **Project Migration**: Export from one project, import to another
+2. **Bulk Task Creation**: Create many tasks in spreadsheet, import all at once
+3. **Data Backup**: Regular CSV exports for backup purposes
+4. **Team Collaboration**: Share task lists between team members
+5. **External Analysis**: Export for reporting or analysis in other tools
+6. **Project Reporting**: Generate PDF reports for stakeholders
+
+#### Canvas & Mindmap Export
+
+While import is currently available for tasks only, you can export:
+- **Canvas Data**: Sticky notes with positions, colors, and content
+- **Mindmap Data**: Hierarchical node structures and relationships
+- Access via API endpoints: `/api/export/csv/canvas` and `/api/export/csv/mindmaps`
 
 ## Project Structure
 
@@ -256,6 +368,70 @@ Goal configuration options:
 - **end**: End date in YYYY-MM-DD format
 - **status**: `planning`, `on-track`, `at-risk`, `late`, `success`, or `failed`
 
+### Canvas Configuration
+
+The Canvas view provides visual brainstorming capabilities with draggable sticky notes:
+
+```markdown
+<!-- Canvas -->
+# Canvas
+
+## Risk Analysis {color: pink; position: {x: 790, y: 90}}
+
+<!-- id: sticky_note_1 -->
+
+## Meeting Notes {color: yellow; position: {x: 200, y: 150}; size: {width: 250, height: 180}}
+
+<!-- id: sticky_note_2 -->
+```
+
+**Canvas Features:**
+- **Interactive Sticky Notes**: Drag and drop to reposition
+- **Color Coding**: Different colors for categorization
+- **Resizable**: Adjust size for content needs
+- **Auto-Save**: Position and content changes saved automatically
+- **Export Support**: CSV export for backup and sharing
+
+Sticky note configuration options:
+- **color**: `yellow`, `pink`, `green`, `blue`, `purple`, `orange` - Visual categorization
+- **position**: `{x: number, y: number}` - Canvas coordinates
+- **size**: `{width: number, height: number}` - Dimensions (optional, defaults to 200x150)
+
+### Mindmap Configuration
+
+The Mindmap view enables hierarchical idea organization:
+
+```markdown
+<!-- Mindmap -->
+# Mindmap
+
+## Project Structure
+
+<!-- id: mindmap_1 -->
+
+- Backend
+  - API Design
+    - REST Endpoints
+    - Authentication
+  - Database
+    - Schema Design
+    - Data Migration
+- Frontend
+  - User Interface
+    - Component Library
+    - Responsive Design
+  - User Experience
+    - Workflow Design
+    - Accessibility
+```
+
+**Mindmap Features:**
+- **Hierarchical Structure**: Nested bullet points create mind map nodes
+- **Multiple Layouts**: Tree and circular layout options
+- **Interactive Navigation**: Click and drag to explore large maps
+- **Zoom Controls**: Scale view for detailed or overview perspectives
+- **Export Support**: CSV export for external tools
+
 ## Development
 
 ### Available Commands
@@ -321,8 +497,10 @@ Complete dark theme support with:
 **Markdown Parsing Rules:**
 - **Section Boundary Comments**: Use HTML comments to mark section boundaries:
   - `<!-- Configurations -->` - Marks start of configuration section
-  - `<!-- Notes -->` - Marks start of notes section  
+  - `<!-- Notes -->` - Marks start of notes section
   - `<!-- Goals -->` - Marks start of goals section
+  - `<!-- Canvas -->` - Marks start of goals section
+  - `<!-- Mindmap -->` - Marks start of goals section
   - `<!-- Board -->` - Marks start of board section
 - **Smart Note Detection**: Parser distinguishes between note titles and content headers using look-ahead logic
 - **Header Support**: You can now safely use `#` and `##` headers within note content without breaking parsing
@@ -351,6 +529,14 @@ PUT    /api/tasks/:id          # Update existing task
 DELETE /api/tasks/:id          # Delete task
 PATCH  /api/tasks/:id/move     # Move task to different section
 
+# Import/Export
+GET    /api/export/csv/tasks   # Export tasks as CSV
+POST   /api/import/csv/tasks   # Import tasks from CSV (Content-Type: text/plain)
+GET    /api/export/csv/canvas  # Export canvas sticky notes as CSV
+POST   /api/import/csv/canvas  # Import canvas sticky notes from CSV
+GET    /api/export/csv/mindmaps # Export mindmaps as CSV
+GET    /api/export/pdf/report  # Generate PDF project report
+
 # Project Management
 GET    /api/project            # Retrieve project info (name, description, notes, goals)
 GET    /api/project/config     # Retrieve project configuration
@@ -371,6 +557,18 @@ GET    /api/goals/:id          # Retrieve specific goal
 POST   /api/goals              # Create new goal
 PUT    /api/goals/:id          # Update existing goal
 DELETE /api/goals/:id          # Delete goal
+
+# Canvas
+GET    /api/canvas             # Retrieve all canvas sticky notes
+POST   /api/canvas             # Create new sticky note
+PUT    /api/canvas/:id         # Update existing sticky note
+DELETE /api/canvas/:id         # Delete sticky note
+
+# Mindmaps
+GET    /api/mindmaps           # Retrieve all mindmaps
+POST   /api/mindmaps           # Create new mindmap
+PUT    /api/mindmaps/:id       # Update existing mindmap
+DELETE /api/mindmaps/:id       # Delete mindmap
 ```
 
 **UI Features:**
@@ -390,13 +588,13 @@ If you notice note content appearing in other sections or parsing issues:
    ```markdown
    <!-- Configurations -->
    # Configurations
-   
+
    <!-- Notes -->
    # Notes
-   
+
    <!-- Goals -->
    # Goals
-   
+
    <!-- Board -->
    # Board
    ```
@@ -411,18 +609,103 @@ If you notice note content appearing in other sections or parsing issues:
 - **Smart Detection**: Parser uses look-ahead to distinguish between note titles and content headers
 - **Boundary Preservation**: All file operations maintain section boundary integrity
 
+### Import/Export Issues
+
+**CSV Import Not Working:**
+1. **File Format**: Ensure CSV has proper headers and format (see Import/Export Guide above)
+2. **Encoding**: Use UTF-8 encoding for CSV files
+3. **Field Validation**: Check that assignees exist in project configuration
+4. **Duplicate Detection**: If no tasks imported, they may already exist (checked by title)
+
+**Data Not Appearing After Import:**
+1. **Refresh Browser**: Force refresh (Ctrl+F5 or Cmd+Shift+R) to reload latest data
+2. **Check Section**: Imported tasks appear in "Todo" section by default
+3. **View Selection**: Ensure you're in Board or List view to see tasks
+
+**CSV Export Issues:**
+1. **Empty Export**: Verify tasks exist in the project
+2. **Browser Blocks**: Check browser downloads/popup settings
+3. **File Permissions**: Ensure browser can write to Downloads folder
+
+**PDF Report Problems:**
+1. **Popup Blocked**: Allow popups for the application domain
+2. **Print Preview**: PDF opens in new window - use browser's print function
+3. **Layout Issues**: Report optimized for single page - complex projects may need scrolling
+
+## Quick Reference
+
+### Essential Commands
+```bash
+# Start development server
+deno task dev
+
+# Start with custom file
+deno task dev my-project.md
+
+# Start production server
+deno task start
+```
+
+### Key Shortcuts & UI Access
+
+**Desktop Navigation:**
+- **Import/Export**: Click ⬇⬆ icon → Select option
+- **Add Task**: Click "+ Task" button
+- **Dark Mode**: Click moon/sun icon
+- **Search**: Use search box in header
+- **Views**: Click Summary/List/Board/Timeline/Notes/Goals/Canvas/Mindmap/Config
+
+### File Format Quick Reference
+```markdown
+# Project Name
+
+Description here...
+
+<!-- Configurations -->
+# Configurations
+Start Date: 2025-01-01
+Assignees:
+- Alice Smith
+Tags:
+- Bug
+
+<!-- Board -->
+# Board
+## Todo
+- [ ] (task1) Task Title {tag: [Bug]; priority: 1; assignee: Alice; due_date: 2025-01-20}
+  Task description here
+```
+
+### CSV Import Format
+```csv
+ID,Title,Section,Completed,Priority,Assignee,Due Date,Effort,Tags,Blocked By,Milestone,Description
+task1,Setup Environment,Todo,FALSE,1,Alice,2025-01-20,2,"Backend","","Sprint 1","Setup dev tools"
+```
+
+### API Quick Reference
+- **Tasks**: `/api/tasks` (GET, POST, PUT, DELETE)
+- **Export CSV**: `/api/export/csv/tasks`
+- **Import CSV**: `POST /api/import/csv/tasks` (Content-Type: text/plain)
+- **PDF Report**: `/api/export/pdf/report`
+- **Project Info**: `/api/project`
+
 ## Screenshots
 
-The `docs/screenshots/` directory contains visual examples of all major features including the board view, list view, task editing, configuration management, and timeline visualization.
+The `docs/screenshots/` directory contains visual examples of all major features including the board view, list view, task editing, configuration management, timeline visualization, import/export functionality, and canvas/mindmap views.
 
 ## Contributing
 
 1. Fork the repository
 2. Create your feature branch
 3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+4. Test thoroughly with import/export functionality
+5. Update documentation if adding new features
+6. Submit a pull request
 
 ## Support
 
-For issues, questions, or feature requests, please create an issue in the project repository.
+For issues, questions, or feature requests, please create an issue in the project repository. When reporting import/export issues, please include:
+- CSV file format/sample data
+- Browser type and version
+- Error messages (if any)
+- Steps to reproduce

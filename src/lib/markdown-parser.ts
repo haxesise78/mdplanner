@@ -3,9 +3,9 @@ import {
   Mindmap,
   MindmapNode,
   Note,
-  PostIt,
   ProjectConfig,
   ProjectInfo,
+  StickyNote,
   Task,
   TaskConfig,
 } from "./types.ts";
@@ -38,7 +38,7 @@ export class MarkdownParser {
         description: [],
         notes: [],
         goals: [],
-        postIts: [],
+        stickyNotes: [],
         mindmaps: [],
       };
     }
@@ -50,7 +50,7 @@ export class MarkdownParser {
     const description: string[] = [];
     const notes: Note[] = [];
     const goals: Goal[] = [];
-    const postIts: PostIt[] = [];
+    const stickyNotes: StickyNote[] = [];
     const mindmaps: Mindmap[] = [];
     let i = 0;
     let foundFirstHeader = false;
@@ -192,7 +192,7 @@ export class MarkdownParser {
         }
         if (inCanvasSection) {
           const canvasResult = this.parseCanvasSection(lines, i);
-          postIts.push(...canvasResult.postIts);
+          stickyNotes.push(...canvasResult.stickyNotes);
           i = canvasResult.nextIndex;
           inCanvasSection = false;
           continue;
@@ -223,10 +223,10 @@ export class MarkdownParser {
         continue;
       }
 
-      // Parse post-its in Canvas section
+      // Parse sticky notes in Canvas section
       if (inCanvasSection && line.startsWith("## ")) {
         const canvasResult = this.parseCanvasSection(lines, i);
-        postIts.push(...canvasResult.postIts);
+        stickyNotes.push(...canvasResult.stickyNotes);
         i = canvasResult.nextIndex;
         continue;
       }
@@ -266,7 +266,14 @@ export class MarkdownParser {
       i++;
     }
 
-    return { name: projectName, description, notes, goals, postIts, mindmaps };
+    return {
+      name: projectName,
+      description,
+      notes,
+      goals,
+      stickyNotes,
+      mindmaps,
+    };
   }
 
   private parseNotesSection(
@@ -474,8 +481,8 @@ export class MarkdownParser {
   private parseCanvasSection(
     lines: string[],
     startIndex: number,
-  ): { postIts: PostIt[]; nextIndex: number } {
-    const postIts: PostIt[] = [];
+  ): { stickyNotes: StickyNote[]; nextIndex: number } {
+    const stickyNotes: StickyNote[] = [];
     let i = startIndex;
 
     while (i < lines.length) {
@@ -486,15 +493,15 @@ export class MarkdownParser {
         break;
       }
 
-      // Parse post-it (## PostIt Content {color: yellow; position: {x: 100, y: 200}})
+      // Parse sticky note (## StickyNote Content {color: yellow; position: {x: 100, y: 200}})
       if (line.startsWith("## ")) {
-        const postItMatch = line.match(/^## (.+?)\s*\{(.+)\}$/);
-        if (postItMatch) {
-          const [, headerContent, configStr] = postItMatch;
+        const stickyNoteMatch = line.match(/^## (.+?)\s*\{(.+)\}$/);
+        if (stickyNoteMatch) {
+          const [, headerContent, configStr] = stickyNoteMatch;
           i++;
 
-          // Check for existing ID in comment format <!-- id: postit_xxx -->
-          let postItId = this.generatePostItId();
+          // Check for existing ID in comment format <!-- id: sticky_note_xxx -->
+          let stickyNoteId = this.generateStickyNoteId();
           let bodyContent = "";
 
           // Look for ID comment first
@@ -502,14 +509,14 @@ export class MarkdownParser {
             const currentLine = lines[i].trim();
 
             // Check for ID comment
-            const idMatch = currentLine.match(/<!-- id: (postit_\d+) -->/);
+            const idMatch = currentLine.match(/<!-- id: (sticky_note_\d+) -->/);
             if (idMatch) {
-              postItId = idMatch[1];
+              stickyNoteId = idMatch[1];
               i++; // Move past the ID comment
               break;
             }
 
-            // Stop if we hit another post-it or section
+            // Stop if we hit another sticky note or section
             if (
               currentLine.startsWith("## ") || currentLine.startsWith("# ") ||
               currentLine.startsWith("<!--")
@@ -524,7 +531,7 @@ export class MarkdownParser {
           while (i < lines.length) {
             const currentLine = lines[i].trim();
 
-            // Stop if we hit another post-it or section
+            // Stop if we hit another sticky note or section
             if (
               currentLine.startsWith("## ") || currentLine.startsWith("# ") ||
               currentLine.startsWith("<!--")
@@ -537,11 +544,11 @@ export class MarkdownParser {
             i++;
           }
 
-          // ALL post-its now use "Post-it" header, content is always in body
+          // ALL sticky notes now use "Sticky Note" header, content is always in body
           const finalContent = bodyContent.trim() || headerContent;
 
-          const postIt: PostIt = {
-            id: postItId,
+          const stickyNote: StickyNote = {
+            id: stickyNoteId,
             content: finalContent,
             color: "yellow",
             position: { x: 0, y: 0 },
@@ -553,7 +560,7 @@ export class MarkdownParser {
             if (key && value) {
               switch (key) {
                 case "color":
-                  postIt.color = value as PostIt["color"];
+                  stickyNote.color = value as StickyNote["color"];
                   break;
                 case "position":
                   try {
@@ -561,7 +568,7 @@ export class MarkdownParser {
                       /\{\s*x:\s*(\d+),\s*y:\s*(\d+)\s*\}/,
                     );
                     if (posMatch) {
-                      postIt.position = {
+                      stickyNote.position = {
                         x: parseInt(posMatch[1]),
                         y: parseInt(posMatch[2]),
                       };
@@ -576,7 +583,7 @@ export class MarkdownParser {
                       /\{\s*width:\s*(\d+),\s*height:\s*(\d+)\s*\}/,
                     );
                     if (sizeMatch) {
-                      postIt.size = {
+                      stickyNote.size = {
                         width: parseInt(sizeMatch[1]),
                         height: parseInt(sizeMatch[2]),
                       };
@@ -589,7 +596,7 @@ export class MarkdownParser {
             }
           }
 
-          postIts.push(postIt);
+          stickyNotes.push(stickyNote);
           continue;
         }
       }
@@ -597,7 +604,7 @@ export class MarkdownParser {
       i++;
     }
 
-    return { postIts, nextIndex: i };
+    return { stickyNotes, nextIndex: i };
   }
 
   private parseMindmapSection(
@@ -920,21 +927,21 @@ export class MarkdownParser {
     // }
     //
     // Add canvas section
-    // if (projectInfo.postIts && projectInfo.postIts.length > 0) {
+    // if (projectInfo.stickyNotes && projectInfo.stickyNotes.length > 0) {
     console.debug("Append canvas line.");
     content += "<!-- Canvas -->\n# Canvas\n\n";
-    for (const postIt of projectInfo.postIts) {
-      const sizeStr = postIt.size
-        ? `; size: {width: ${postIt.size.width}, height: ${postIt.size.height}}`
+    for (const stickyNote of projectInfo.stickyNotes) {
+      const sizeStr = stickyNote.size
+        ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
         : "";
-      // For multiline content, use "Post-it" as header and put all content in body
-      const hasNewlines = postIt.content.includes("\n");
-      const title = hasNewlines ? "Post-it" : postIt.content;
-      const bodyContent = hasNewlines ? postIt.content : "";
+      // For multiline content, use "Sticky note" as header and put all content in body
+      const hasNewlines = stickyNote.content.includes("\n");
+      const title = hasNewlines ? "Sticky note" : stickyNote.content;
+      const bodyContent = hasNewlines ? stickyNote.content : "";
 
       content +=
-        `## ${title} {color: ${postIt.color}; position: {x: ${postIt.position.x}, y: ${postIt.position.y}}${sizeStr}}\n\n`;
-      content += `<!-- id: ${postIt.id} -->\n`;
+        `## ${title} {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}\n\n`;
+      content += `<!-- id: ${stickyNote.id} -->\n`;
       if (bodyContent.trim()) {
         content += `${bodyContent}\n\n`;
       } else {
@@ -1283,20 +1290,21 @@ export class MarkdownParser {
     }
   }
 
-  generatePostItId(): string {
+  generateStickyNoteId(): string {
     try {
       const content = Deno.readTextFileSync(this.filePath);
-      const postItIdMatches = content.match(/<!-- id: postit_(\d+) -->/g) || [];
+      const stickyNoteIdMatches =
+        content.match(/<!-- id: sticky_note_(\d+) -->/g) || [];
       const maxId = Math.max(
         0,
-        ...postItIdMatches.map((match) => {
-          const idMatch = match.match(/postit_(\d+)/);
+        ...stickyNoteIdMatches.map((match) => {
+          const idMatch = match.match(/sticky_note_(\d+)/);
           return idMatch ? parseInt(idMatch[1]) : 0;
         }),
       );
-      return `postit_${maxId + 1}`;
+      return `sticky_note_${maxId + 1}`;
     } catch {
-      return "postit_1";
+      return "sticky_note_1";
     }
   }
 
@@ -1561,7 +1569,7 @@ export class MarkdownParser {
     return false;
   }
 
-  private async addPostItToFile(postIt: PostIt): Promise<void> {
+  private async addStickyNoteToFile(stickyNote: StickyNote): Promise<void> {
     const content = await Deno.readTextFile(this.filePath);
     const lines = content.split("\n");
 
@@ -1595,7 +1603,7 @@ export class MarkdownParser {
       }
     }
 
-    // Find end of Canvas section to insert new post-it
+    // Find end of Canvas section to insert new sticky note
     let insertIndex = canvasIndex + 2; // Skip "<!-- Canvas -->" and "# Canvas"
     for (let i = insertIndex; i < lines.length; i++) {
       if (lines[i].trim().startsWith("<!--") && !lines[i].includes("id:")) {
@@ -1604,77 +1612,81 @@ export class MarkdownParser {
       }
     }
 
-    // Generate post-it markdown - ALWAYS use "Post-it" as header
-    const sizeStr = postIt.size
-      ? `; size: {width: ${postIt.size.width}, height: ${postIt.size.height}}`
+    // Generate sticky note markdown - ALWAYS use "Sticky Note" as header
+    const sizeStr = stickyNote.size
+      ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
       : "";
 
-    const postItLines = [
-      `## Post-it {color: ${postIt.color}; position: {x: ${postIt.position.x}, y: ${postIt.position.y}}${sizeStr}}`,
+    const stickyNoteLines = [
+      `## Sticky note {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}`,
       "",
-      `<!-- id: ${postIt.id} -->`,
-      postIt.content,
+      `<!-- id: ${stickyNote.id} -->`,
+      stickyNote.content,
       "",
     ];
 
-    lines.splice(insertIndex, 0, ...postItLines);
+    lines.splice(insertIndex, 0, ...stickyNoteLines);
     await Deno.writeTextFile(this.filePath, lines.join("\n"));
   }
 
-  private async updatePostItInFile(
-    postItId: string,
-    postIt: PostIt,
+  private async updateStickyNoteInFile(
+    stickyNoteId: string,
+    stickyNote: StickyNote,
   ): Promise<void> {
     const content = await Deno.readTextFile(this.filePath);
     const lines = content.split("\n");
 
-    // Find the post-it by ID
-    let postItStart = -1;
-    let postItEnd = -1;
+    // Find the sticky note by ID
+    let stickyNoteStart = -1;
+    let stickyNoteEnd = -1;
 
     for (let i = 0; i < lines.length; i++) {
-      const idMatch = lines[i].trim().match(/<!-- id: (postit_\d+) -->/);
-      if (idMatch && idMatch[1] === postItId) {
+      const idMatch = lines[i].trim().match(/<!-- id: (sticky_note_\d+) -->/);
+      if (idMatch && idMatch[1] === stickyNoteId) {
         // Found the ID comment, now find the header
         for (let j = i - 1; j >= 0; j--) {
           if (lines[j].trim().startsWith("## ") && lines[j].includes("{")) {
-            postItStart = j;
+            stickyNoteStart = j;
             break;
           }
         }
 
-        // Find end of this post-it (next post-it or section)
+        // Find end of this sticky note (next sticky note or section)
         for (let j = i + 1; j < lines.length; j++) {
           if (
             lines[j].trim().startsWith("## ") ||
             lines[j].trim().startsWith("<!--")
           ) {
-            postItEnd = j;
+            stickyNoteEnd = j;
             break;
           }
         }
-        if (postItEnd === -1) postItEnd = lines.length;
+        if (stickyNoteEnd === -1) stickyNoteEnd = lines.length;
         break;
       }
     }
 
-    if (postItStart === -1) return; // Post-it not found
+    if (stickyNoteStart === -1) return; // Sticky note not found
 
-    // Generate new post-it markdown - ALWAYS use "Post-it" as header
-    const sizeStr = postIt.size
-      ? `; size: {width: ${postIt.size.width}, height: ${postIt.size.height}}`
+    // Generate new sticky note markdown - ALWAYS use "Sticky Note" as header
+    const sizeStr = stickyNote.size
+      ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
       : "";
 
-    const newPostItLines = [
-      `## Post-it {color: ${postIt.color}; position: {x: ${postIt.position.x}, y: ${postIt.position.y}}${sizeStr}}`,
+    const newStickyNoteLines = [
+      `## Sticky note {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}`,
       "",
-      `<!-- id: ${postIt.id} -->`,
-      postIt.content,
+      `<!-- id: ${stickyNote.id} -->`,
+      stickyNote.content,
       "",
     ];
 
-    // Replace the old post-it with the new one
-    lines.splice(postItStart, postItEnd - postItStart, ...newPostItLines);
+    // Replace the old sticky note with the new one
+    lines.splice(
+      stickyNoteStart,
+      stickyNoteEnd - stickyNoteStart,
+      ...newStickyNoteLines,
+    );
     await Deno.writeTextFile(this.filePath, lines.join("\n"));
   }
 
@@ -1776,21 +1788,21 @@ export class MarkdownParser {
     // }
 
     // Add canvas section
-    // if (projectInfo.postIts && projectInfo.postIts.length > 0) {
+    // if (projectInfo.stickyNotes && projectInfo.stickyNotes.length > 0) {
     console.debug("Append the canvas line.");
     content += "<!-- Canvas -->\n# Canvas\n\n";
-    for (const postIt of projectInfo.postIts) {
-      const sizeStr = postIt.size
-        ? `; size: {width: ${postIt.size.width}, height: ${postIt.size.height}}`
+    for (const stickyNote of projectInfo.stickyNotes) {
+      const sizeStr = stickyNote.size
+        ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
         : "";
-      // For multiline content, use "Post-it" as header and put all content in body
-      const hasNewlines = postIt.content.includes("\n");
-      const title = hasNewlines ? "Post-it" : postIt.content;
-      const bodyContent = hasNewlines ? postIt.content : "";
+      // For multiline content, use "Sticky note" as header and put all content in body
+      const hasNewlines = stickyNote.content.includes("\n");
+      const title = hasNewlines ? "Sticky note" : stickyNote.content;
+      const bodyContent = hasNewlines ? stickyNote.content : "";
 
       content +=
-        `## ${title} {color: ${postIt.color}; position: {x: ${postIt.position.x}, y: ${postIt.position.y}}${sizeStr}}\n\n`;
-      content += `<!-- id: ${postIt.id} -->\n`;
+        `## ${title} {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}\n\n`;
+      content += `<!-- id: ${stickyNote.id} -->\n`;
       if (bodyContent.trim()) {
         content += `${bodyContent}\n\n`;
       } else {
@@ -1838,48 +1850,51 @@ export class MarkdownParser {
     await Deno.writeTextFile(this.filePath, content);
   }
 
-  async addPostIt(postIt: Omit<PostIt, "id">): Promise<string> {
+  async addStickyNote(stickyNote: Omit<StickyNote, "id">): Promise<string> {
     const projectInfo = await this.readProjectInfo();
-    const newPostIt: PostIt = {
-      ...postIt,
-      id: this.generatePostItId(),
+    const newStickyNote: StickyNote = {
+      ...stickyNote,
+      id: this.generateStickyNoteId(),
     };
 
-    projectInfo.postIts.push(newPostIt);
-    // Use direct file manipulation for post-its to avoid Canvas regeneration
-    await this.addPostItToFile(newPostIt);
-    return newPostIt.id;
+    projectInfo.stickyNotes.push(newStickyNote);
+    // Use direct file manipulation for sticky notes to avoid Canvas regeneration
+    await this.addStickyNoteToFile(newStickyNote);
+    return newStickyNote.id;
   }
 
-  async updatePostIt(
-    postItId: string,
-    updates: Partial<Omit<PostIt, "id">>,
+  async updateStickyNote(
+    stickyNoteId: string,
+    updates: Partial<Omit<StickyNote, "id">>,
   ): Promise<boolean> {
     const projectInfo = await this.readProjectInfo();
-    const postItIndex = projectInfo.postIts.findIndex((postIt) =>
-      postIt.id === postItId
+    const stickyNoteIndex = projectInfo.stickyNotes.findIndex((stickyNote) =>
+      stickyNote.id === stickyNoteId
     );
 
-    if (postItIndex === -1) return false;
+    if (stickyNoteIndex === -1) return false;
 
-    projectInfo.postIts[postItIndex] = {
-      ...projectInfo.postIts[postItIndex],
+    projectInfo.stickyNotes[stickyNoteIndex] = {
+      ...projectInfo.stickyNotes[stickyNoteIndex],
       ...updates,
     };
 
-    // Use direct file manipulation for post-its to avoid Canvas regeneration
-    await this.updatePostItInFile(postItId, projectInfo.postIts[postItIndex]);
+    // Use direct file manipulation for sticky notes to avoid Canvas regeneration
+    await this.updateStickyNoteInFile(
+      stickyNoteId,
+      projectInfo.stickyNotes[stickyNoteIndex],
+    );
     return true;
   }
 
-  async deletePostIt(postItId: string): Promise<boolean> {
+  async deleteStickyNote(stickyNoteId: string): Promise<boolean> {
     const projectInfo = await this.readProjectInfo();
-    const originalLength = projectInfo.postIts.length;
-    projectInfo.postIts = projectInfo.postIts.filter((postIt) =>
-      postIt.id !== postItId
+    const originalLength = projectInfo.stickyNotes.length;
+    projectInfo.stickyNotes = projectInfo.stickyNotes.filter((stickyNote) =>
+      stickyNote.id !== stickyNoteId
     );
 
-    if (projectInfo.postIts.length !== originalLength) {
+    if (projectInfo.stickyNotes.length !== originalLength) {
       await this.saveProjectInfo(projectInfo);
       return true;
     }

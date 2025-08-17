@@ -38,7 +38,7 @@ export interface Goal {
   status: "planning" | "on-track" | "at-risk" | "late" | "success" | "failed";
 }
 
-export interface PostIt {
+export interface StickyNote {
   id: string;
   content: string;
   color: "yellow" | "pink" | "blue" | "green" | "purple" | "orange";
@@ -65,7 +65,7 @@ export interface ProjectInfo {
   description: string[];
   notes: Note[];
   goals: Goal[];
-  postIts: PostIt[];
+  stickyNotes: StickyNote[];
   mindmaps: Mindmap[];
 }
 

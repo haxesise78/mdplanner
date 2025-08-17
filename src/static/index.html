@@ -56,7 +56,7 @@
         }
         
         /* Canvas styles */
-        .post-it {
+        .sticky-note {
             position: absolute;
             width: 200px;
             min-height: 150px;
@@ -75,24 +75,24 @@
             min-height: 100px;
         }
         
-        .post-it:hover {
+        .sticky-note:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
         
-        .post-it.dragging {
+        .sticky-note.dragging {
             transform: rotate(5deg) scale(1.05);
             z-index: 1000;
         }
         
-        .post-it.yellow { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
-        .post-it.pink { background-color: #fce7f3; border-left: 4px solid #ec4899; }
-        .post-it.blue { background-color: #dbeafe; border-left: 4px solid #3b82f6; }
-        .post-it.green { background-color: #d1fae5; border-left: 4px solid #10b981; }
-        .post-it.purple { background-color: #e9d5ff; border-left: 4px solid #8b5cf6; }
-        .post-it.orange { background-color: #fed7aa; border-left: 4px solid #f97316; }
+        .sticky-note.yellow { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
+        .sticky-note.pink { background-color: #fce7f3; border-left: 4px solid #ec4899; }
+        .sticky-note.blue { background-color: #dbeafe; border-left: 4px solid #3b82f6; }
+        .sticky-note.green { background-color: #d1fae5; border-left: 4px solid #10b981; }
+        .sticky-note.purple { background-color: #e9d5ff; border-left: 4px solid #8b5cf6; }
+        .sticky-note.orange { background-color: #fed7aa; border-left: 4px solid #f97316; }
         
-        .post-it-controls {
+        .sticky-note-controls {
             position: absolute;
             top: 4px;
             right: 4px;
@@ -102,11 +102,11 @@
             padding: 2px;
         }
         
-        .post-it:hover .post-it-controls {
+        .sticky-note:hover .sticky-note-controls {
             display: flex;
         }
         
-        .post-it-controls button {
+        .sticky-note-controls button {
             background: none;
             border: none;
             color: white;
@@ -116,7 +116,7 @@
             font-size: 12px;
         }
         
-        .post-it-controls button:hover {
+        .sticky-note-controls button:hover {
             background: rgba(255, 255, 255, 0.2);
         }
         
@@ -193,60 +193,96 @@
                 <div class="flex items-center space-x-4">
                     <h1 class="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
                 </div>
-                <div class="flex items-center space-x-2 lg:space-x-4">
-                    <!-- View Toggle - responsive -->
+                <div class="flex items-center space-x-1 lg:space-x-3">
+                    <!-- View Toggle - more compact -->
                     <div class="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
-                        <button id="summaryViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">
+                        <button id="summaryViewBtn" class="px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm">
                             Summary
                         </button>
-                        <button id="listViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="listViewBtn" class="px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             List
                         </button>
-                        <button id="boardViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="boardViewBtn" class="px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Board
                         </button>
-                        <button id="timelineViewBtn" class="hidden lg:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="timelineViewBtn" class="hidden lg:block px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Timeline
                         </button>
-                        <button id="notesViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="notesViewBtn" class="px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Notes
                         </button>
-                        <button id="goalsViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="goalsViewBtn" class="px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Goals
                         </button>
-                        <button id="canvasViewBtn" class="hidden xl:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="canvasViewBtn" class="hidden xl:block px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Canvas
                         </button>
-                        <button id="mindmapViewBtn" class="hidden xl:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="mindmapViewBtn" class="hidden xl:block px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Mindmap
                         </button>
-                        <button id="configViewBtn" class="hidden lg:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                        <button id="configViewBtn" class="hidden lg:block px-1.5 lg:px-2 py-1 rounded-md text-xs font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Config
                         </button>
                     </div>
-                    <!-- Dark Mode Toggle -->
-                    <button id="darkModeToggle" class="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors" title="Toggle Dark Mode">
-                        <svg class="w-5 h-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-                        </svg>
-                        <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                        </svg>
-                    </button>
                     
-                    <!-- Search - responsive -->
-                    <div class="relative">
-                        <input type="text" id="searchInput" placeholder="Search..." class="w-32 lg:w-64 pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                        <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
+                    <!-- Compact action buttons -->
+                    <div class="flex items-center space-x-1">
+                        <!-- Dark Mode Toggle -->
+                        <button id="darkModeToggle" class="p-1.5 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors" title="Toggle Dark Mode">
+                            <svg class="w-4 h-4 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                            </svg>
+                            <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                            </svg>
+                        </button>
+                        
+                        <!-- Search - compact -->
+                        <div class="relative hidden lg:block">
+                            <input type="text" id="searchInput" placeholder="Search..." class="w-40 pl-8 pr-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <svg class="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                        
+                        <!-- Import/Export Button - compact -->
+                        <div class="relative">
+                            <button id="importExportBtn" class="bg-gray-600 text-white p-1.5 rounded-md hover:bg-gray-700 transition-colors" title="Import/Export">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                                </svg>
+                            </button>
+                            <div id="importExportDropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg hidden z-50">
+                                <div class="py-1">
+                                    <button id="exportTasksBtn" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Export Tasks CSV
+                                    </button>
+                                    <button id="importTasksBtn" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                        </svg>
+                                        Import Tasks CSV
+                                    </button>
+                                    <div class="border-t border-gray-200 dark:border-gray-600"></div>
+                                    <button id="exportReportBtn" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Export PDF Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Add Task Button - compact -->
+                        <button id="addTaskBtn" class="bg-primary text-white px-2 lg:px-3 py-1.5 rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm">
+                            <span class="hidden lg:inline">+ Task</span>
+                            <span class="lg:hidden">+</span>
+                        </button>
                     </div>
-                    
-                    <!-- Add Task Button -->
-                    <button id="addTaskBtn" class="bg-primary text-white px-3 lg:px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors text-sm">
-                        <span class="hidden lg:inline">+ Add Task</span>
-                        <span class="lg:hidden">+</span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -297,6 +333,19 @@
                     </svg>
                 </div>
                 
+                
+                <!-- Mobile import/export buttons -->
+                <div class="grid grid-cols-2 gap-2 mt-3">
+                    <button id="exportTasksBtnMobile" class="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
+                        📊 Export CSV
+                    </button>
+                    <button id="exportReportBtnMobile" class="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
+                        📄 Export PDF
+                    </button>
+                </div>
+                <button id="importTasksBtnMobile" class="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors mt-2">
+                    📁 Import Tasks CSV
+                </button>
                 
                 <!-- Mobile add task -->
                 <button id="addTaskBtnMobile" class="w-full bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
@@ -602,8 +651,8 @@
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Canvas</h2>
                     <div class="flex space-x-2">
-                        <button id="addPostItBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
-                            + Add Post-it
+                        <button id="addStickyNoteBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                            + Add Sticky Note
                         </button>
                     </div>
                 </div>
@@ -626,7 +675,7 @@
                             <!-- Grid pattern will be generated here -->
                         </div>
                         <div id="canvasContent" class="relative w-full h-full">
-                            <!-- Post-its will be positioned here -->
+                            <!-- Sticky notes will be positioned here -->
                         </div>
                     </div>
                 </div>
@@ -733,6 +782,9 @@
             </div>
         </div>
     </main>
+
+    <!-- Hidden File Input for CSV Import -->
+    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
 
     <!-- Note Modal -->
     <div id="noteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
@@ -860,16 +912,16 @@
         </div>
     </div>
 
-    <!-- Post-it Modal -->
-    <div id="postItModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <!-- Sticky Note Modal -->
+    <div id="stickyNoteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 id="postItModalTitle" class="text-lg font-medium text-gray-900 dark:text-gray-100">Add Post-it</h3>
+                <h3 id="stickyNoteModalTitle" class="text-lg font-medium text-gray-900 dark:text-gray-100">Add Sticky Note</h3>
             </div>
-            <form id="postItForm" class="p-6 space-y-4">
+            <form id="stickyNoteForm" class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Content</label>
-                    <textarea id="postItContent" required rows="4" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter post-it content..."></textarea>
+                    <textarea id="stickyNoteContent" required rows="4" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter sticky note content..."></textarea>
                 </div>
                 
                 <div>
@@ -885,11 +937,11 @@
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-4">
-                    <button type="button" id="cancelPostItBtn" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                    <button type="button" id="cancelStickyNoteBtn" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         Cancel
                     </button>
                     <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
-                        Add Post-it
+                        Add Sticky Note
                     </button>
                 </div>
             </form>
