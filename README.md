@@ -454,6 +454,45 @@ deno task dev my-tasks.md
 - **Storage**: Markdown files (no external database required)
 - **API**: REST endpoints with CORS support
 
+## Backup System
+
+MD Planner includes an automatic backup system to protect your data:
+
+### Features
+- **Automatic Backups**: Creates timestamped backups before any file modification
+- **Configurable Retention**: Keeps a configurable number of recent backups (default: 10)
+- **Smart Cleanup**: Automatically removes old backups to prevent disk space issues
+- **Zero Configuration**: Works out of the box with sensible defaults
+
+### Configuration
+Set environment variables to customize backup behavior:
+
+```bash
+# Maximum number of backups to keep (default: 10)
+export MD_PLANNER_MAX_BACKUPS=20
+
+# Backup directory location (default: ./backups)
+export MD_PLANNER_BACKUP_DIR="/path/to/backups"
+
+# Start the server with custom backup settings
+deno task dev my-project.md
+```
+
+### Backup File Format
+Backups are saved with descriptive timestamps:
+```
+backups/
+├── structure_backup_2025-08-17T17-30-45-123Z.md
+├── structure_backup_2025-08-17T17-25-30-456Z.md
+└── structure_backup_2025-08-17T17-20-15-789Z.md
+```
+
+### When Backups Are Created
+- Before task imports from CSV
+- Before project configuration updates
+- Before sticky note modifications
+- Before any direct file write operations
+
 ## Configuration Management
 
 All project configuration is stored within the markdown file itself under the `# Configurations` section:

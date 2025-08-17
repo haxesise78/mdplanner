@@ -27,11 +27,13 @@ class TaskManager {
         this.selectedMindmap = null;
         this.editingMindmap = null;
         this.currentLayout = 'tree';
+        this.isFullscreen = false;
         this.init();
     }
 
     async init() {
         this.initDarkMode();
+        this.initFullscreenMode();
         this.bindEvents();
         await this.loadProjectConfig(); // Load config first
         await this.loadSections(); // Load sections from board
@@ -67,6 +69,7 @@ class TaskManager {
         
         // Dark mode toggle
         document.getElementById('darkModeToggle').addEventListener('click', () => this.toggleDarkMode());
+        document.getElementById('fullscreenToggle').addEventListener('click', () => this.toggleFullscreen());
         
         // Add task - Desktop and Mobile
         document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
@@ -1230,12 +1233,76 @@ class TaskManager {
         }
     }
 
+    toggleFullscreen() {
+        this.isFullscreen = !this.isFullscreen;
+        this.applyFullscreenMode();
+        localStorage.setItem('fullscreenMode', this.isFullscreen.toString());
+    }
+
+    applyFullscreenMode() {
+        const header = document.querySelector('header');
+        const main = document.querySelector('main');
+        const fullscreenIcon = document.getElementById('fullscreenIcon');
+        const exitFullscreenIcon = document.getElementById('exitFullscreenIcon');
+        
+        if (this.isFullscreen) {
+            // Hide header and remove container constraints
+            header.classList.add('hidden');
+            main.classList.remove('max-w-7xl', 'mx-auto', 'px-2', 'sm:px-4', 'lg:px-8', 'py-4', 'sm:py-8');
+            main.classList.add('w-full', 'min-h-screen', 'p-0');
+            
+            // Update button icons
+            fullscreenIcon.classList.add('hidden');
+            exitFullscreenIcon.classList.remove('hidden');
+            
+            // Add escape key listener
+            this.bindEscapeKey();
+        } else {
+            // Show header and restore container constraints
+            header.classList.remove('hidden');
+            main.classList.add('max-w-7xl', 'mx-auto', 'px-2', 'sm:px-4', 'lg:px-8', 'py-4', 'sm:py-8');
+            main.classList.remove('w-full', 'min-h-screen', 'p-0');
+            
+            // Update button icons
+            fullscreenIcon.classList.remove('hidden');
+            exitFullscreenIcon.classList.add('hidden');
+            
+            // Remove escape key listener
+            this.unbindEscapeKey();
+        }
+    }
+
+    bindEscapeKey() {
+        this.escapeKeyHandler = (e) => {
+            if (e.key === 'Escape' && this.isFullscreen) {
+                this.toggleFullscreen();
+            }
+        };
+        document.addEventListener('keydown', this.escapeKeyHandler);
+    }
+
+    unbindEscapeKey() {
+        if (this.escapeKeyHandler) {
+            document.removeEventListener('keydown', this.escapeKeyHandler);
+            this.escapeKeyHandler = null;
+        }
+    }
+
     initDarkMode() {
         const savedDarkMode = localStorage.getItem('darkMode');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         
         if (savedDarkMode === 'true' || (savedDarkMode === null && prefersDark)) {
             document.documentElement.classList.add('dark');
+        }
+    }
+
+    initFullscreenMode() {
+        const savedFullscreenMode = localStorage.getItem('fullscreenMode');
+        if (savedFullscreenMode === 'true') {
+            this.isFullscreen = true;
+            // Apply fullscreen mode after DOM is ready
+            setTimeout(() => this.applyFullscreenMode(), 0);
         }
     }
 
@@ -2858,6 +2925,61 @@ class TaskManager {
             const stickyNoteElement = this.createStickyNoteElement(stickyNote);
             canvasContent.appendChild(stickyNoteElement);
         });
+        
+        // Setup canvas panning if not already done
+        this.setupCanvasPanning();
+    }
+
+    setupCanvasPanning() {
+        const viewport = document.getElementById('canvasViewport');
+        if (!viewport || viewport.hasAttribute('data-panning-setup')) return;
+        
+        viewport.setAttribute('data-panning-setup', 'true');
+        viewport.style.cursor = 'grab';
+        viewport.title = 'Click and drag to pan the canvas';
+        
+        let isDragging = false;
+        let startX, startY, startTranslateX = 0, startTranslateY = 0;
+        
+        viewport.addEventListener('mousedown', (e) => {
+            // Only allow panning on the viewport itself or canvasContent, not on sticky notes
+            if (e.target === viewport || e.target.id === 'canvasContent') {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                viewport.style.cursor = 'grabbing';
+            }
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                const newTranslateX = startTranslateX + deltaX;
+                const newTranslateY = startTranslateY + deltaY;
+                
+                // Update canvasOffset for consistency
+                this.canvasOffset.x = newTranslateX;
+                this.canvasOffset.y = newTranslateY;
+                
+                viewport.style.transform = `translate(${newTranslateX}px, ${newTranslateY}px) scale(${this.canvasZoom})`;
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                viewport.style.cursor = 'grab';
+                const transform = viewport.style.transform;
+                const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+                if (match) {
+                    startTranslateX = parseFloat(match[1]);
+                    startTranslateY = parseFloat(match[2]);
+                    this.canvasOffset.x = startTranslateX;
+                    this.canvasOffset.y = startTranslateY;
+                }
+            }
+        });
     }
 
     createStickyNoteElement(stickyNote) {
@@ -2882,6 +3004,7 @@ class TaskManager {
         `;
         
         this.makeStickyNoteDraggable(element);
+        this.makeStickyNoteResizable(element);
         return element;
     }
 
@@ -2917,6 +3040,39 @@ class TaskManager {
                 });
             }
         });
+    }
+
+    makeStickyNoteResizable(element) {
+        // Use ResizeObserver to detect size changes
+        if (!window.ResizeObserver) return; // Fallback for older browsers
+        
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect;
+                // Debounce the save operation to avoid too many API calls
+                clearTimeout(element.resizeTimeout);
+                element.resizeTimeout = setTimeout(() => {
+                    this.updateStickyNoteSize(element.dataset.id, { width, height });
+                }, 500);
+            }
+        });
+        
+        resizeObserver.observe(element);
+        
+        // Store the observer so it can be disconnected if needed
+        element.resizeObserver = resizeObserver;
+    }
+
+    async updateStickyNoteSize(id, size) {
+        try {
+            await fetch(`/api/canvas/sticky_notes/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ size })
+            });
+        } catch (error) {
+            console.error('Error updating sticky note size:', error);
+        }
     }
 
     openStickyNoteModal() {
@@ -3469,9 +3625,6 @@ class TaskManager {
         return nodes;
     }
 
-    exportMindmapCSV() {
-        window.open('/api/export/csv/mindmaps', '_blank');
-    }
 
     // Import/Export functionality
     toggleImportExportDropdown() {

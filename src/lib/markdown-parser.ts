@@ -12,9 +12,79 @@ import {
 
 export class MarkdownParser {
   private filePath: string;
+  private maxBackups: number;
+  private backupDir: string;
 
   constructor(filePath: string) {
     this.filePath = filePath;
+    // Default to keep 10 backups, configurable via environment variable
+    this.maxBackups = parseInt(Deno.env.get("MD_PLANNER_MAX_BACKUPS") || "10");
+    this.backupDir = Deno.env.get("MD_PLANNER_BACKUP_DIR") || "./backups";
+  }
+
+  /**
+   * Creates a backup of the current markdown file before making changes
+   */
+  private async createBackup(): Promise<void> {
+    try {
+      // Ensure backup directory exists
+      await Deno.mkdir(this.backupDir, { recursive: true });
+
+      // Read current file content
+      const content = await Deno.readTextFile(this.filePath);
+
+      // Create timestamped backup filename
+      const fileName = this.filePath.split("/").pop() || "structure.md";
+      const baseName = fileName.replace(/\.md$/, "");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const backupFileName = `${baseName}_backup_${timestamp}.md`;
+      const backupPath = `${this.backupDir}/${backupFileName}`;
+
+      // Write backup
+      await Deno.writeTextFile(backupPath, content);
+      console.log(`Created backup: ${backupPath}`);
+
+      // Clean up old backups
+      await this.cleanupOldBackups(baseName);
+    } catch (error) {
+      console.warn("Failed to create backup:", error);
+      // Continue execution even if backup fails
+    }
+  }
+
+  /**
+   * Removes old backups, keeping only the most recent maxBackups files
+   */
+  private async cleanupOldBackups(baseName: string): Promise<void> {
+    try {
+      const backupFiles: { name: string; mtime: Date }[] = [];
+
+      for await (const entry of Deno.readDir(this.backupDir)) {
+        if (
+          entry.isFile && entry.name.startsWith(`${baseName}_backup_`) &&
+          entry.name.endsWith(".md")
+        ) {
+          const filePath = `${this.backupDir}/${entry.name}`;
+          const stat = await Deno.stat(filePath);
+          backupFiles.push({
+            name: entry.name,
+            mtime: stat.mtime || new Date(0),
+          });
+        }
+      }
+
+      // Sort by modification time (newest first)
+      backupFiles.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+
+      // Remove old backups beyond maxBackups limit
+      const filesToDelete = backupFiles.slice(this.maxBackups);
+      for (const file of filesToDelete) {
+        await Deno.remove(`${this.backupDir}/${file.name}`);
+        console.log(`Removed old backup: ${file.name}`);
+      }
+    } catch (error) {
+      console.warn("Failed to cleanup old backups:", error);
+    }
   }
 
   async readTasks(): Promise<Task[]> {
@@ -870,6 +940,7 @@ export class MarkdownParser {
         "**Children items without [] and (string)**: it is a multiline description of the parent item\n\n\n";
     }
 
+    content = content.trim();
     // Add configuration section
     content += "<!-- Configurations -->\n# Configurations\n\n";
     content += `Start Date: ${
@@ -985,6 +1056,7 @@ export class MarkdownParser {
       content += "\n";
     }
 
+    await this.createBackup();
     await Deno.writeTextFile(this.filePath, content);
   }
 
@@ -1371,6 +1443,7 @@ export class MarkdownParser {
         config,
       );
       console.log("Updated content length:", updatedContent.length);
+      await this.createBackup();
       await Deno.writeTextFile(this.filePath, updatedContent);
       console.log("File written successfully");
       return true;
@@ -1626,6 +1699,7 @@ export class MarkdownParser {
     ];
 
     lines.splice(insertIndex, 0, ...stickyNoteLines);
+    await this.createBackup();
     await Deno.writeTextFile(this.filePath, lines.join("\n"));
   }
 
@@ -1687,6 +1761,7 @@ export class MarkdownParser {
       stickyNoteEnd - stickyNoteStart,
       ...newStickyNoteLines,
     );
+    await this.createBackup();
     await Deno.writeTextFile(this.filePath, lines.join("\n"));
   }
 
@@ -1847,6 +1922,7 @@ export class MarkdownParser {
       content += "\n";
     }
 
+    await this.createBackup();
     await Deno.writeTextFile(this.filePath, content);
   }
 
@@ -1994,5 +2070,13 @@ export class MarkdownParser {
     }
 
     return pairs;
+  }
+
+  /**
+   * Safely writes content to the markdown file with backup
+   */
+  async safeWriteFile(content: string): Promise<void> {
+    await this.createBackup();
+    await Deno.writeTextFile(this.filePath, content);
   }
 }

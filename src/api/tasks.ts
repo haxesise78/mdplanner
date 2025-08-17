@@ -505,39 +505,6 @@ export class TaskAPI {
         });
       }
 
-      // GET /api/export/csv/canvas
-      if (
-        method === "GET" && pathParts.length === 4 &&
-        pathParts[1] === "export" && pathParts[2] === "csv" &&
-        pathParts[3] === "canvas"
-      ) {
-        const projectInfo = await this.parser.readProjectInfo();
-        const csv = this.convertCanvasToCSV(projectInfo.stickyNotes);
-        return new Response(csv, {
-          headers: {
-            ...headers,
-            "Content-Type": "text/csv",
-            "Content-Disposition": "attachment; filename=canvas.csv",
-          },
-        });
-      }
-
-      // GET /api/export/csv/mindmaps
-      if (
-        method === "GET" && pathParts.length === 4 &&
-        pathParts[1] === "export" && pathParts[2] === "csv" &&
-        pathParts[3] === "mindmaps"
-      ) {
-        const projectInfo = await this.parser.readProjectInfo();
-        const csv = this.convertMindmapsToCSV(projectInfo.mindmaps);
-        return new Response(csv, {
-          headers: {
-            ...headers,
-            "Content-Type": "text/csv",
-            "Content-Disposition": "attachment; filename=mindmaps.csv",
-          },
-        });
-      }
 
       // POST /api/import/csv/tasks
       if (
@@ -679,61 +646,6 @@ export class TaskAPI {
     return csv;
   }
 
-  private convertCanvasToCSV(stickyNotes: any[]): string {
-    const headers = [
-      "ID",
-      "Content",
-      "Color",
-      "Position X",
-      "Position Y",
-      "Width",
-      "Height",
-    ];
-    let csv = headers.join(",") + "\n";
-
-    for (const stickyNote of stickyNotes) {
-      const row = [
-        this.escapeCSV(stickyNote.id),
-        this.escapeCSV(stickyNote.content),
-        this.escapeCSV(stickyNote.color),
-        stickyNote.position.x.toString(),
-        stickyNote.position.y.toString(),
-        this.escapeCSV(stickyNote.size?.width?.toString() || ""),
-        this.escapeCSV(stickyNote.size?.height?.toString() || ""),
-      ];
-      csv += row.join(",") + "\n";
-    }
-
-    return csv;
-  }
-
-  private convertMindmapsToCSV(mindmaps: any[]): string {
-    const headers = [
-      "Mindmap ID",
-      "Mindmap Title",
-      "Node ID",
-      "Node Text",
-      "Level",
-      "Parent ID",
-    ];
-    let csv = headers.join(",") + "\n";
-
-    for (const mindmap of mindmaps) {
-      for (const node of mindmap.nodes) {
-        const row = [
-          this.escapeCSV(mindmap.id),
-          this.escapeCSV(mindmap.title),
-          this.escapeCSV(node.id),
-          this.escapeCSV(node.text),
-          node.level.toString(),
-          this.escapeCSV(node.parent || ""),
-        ];
-        csv += row.join(",") + "\n";
-      }
-    }
-
-    return csv;
-  }
 
   private parseTasksCSV(csvContent: string): Task[] {
     const lines = csvContent.trim().split("\n");
@@ -1252,8 +1164,8 @@ export class TaskAPI {
       // Insert the new tasks
       lines.splice(insertIndex, 0, ...taskLines);
 
-      // Write the updated content back
-      await Deno.writeTextFile(this.parser.filePath, lines.join("\n"));
+      // Write the updated content back with backup
+      await this.parser.safeWriteFile(lines.join("\n"));
 
       return tasks.length;
     } catch (error) {
