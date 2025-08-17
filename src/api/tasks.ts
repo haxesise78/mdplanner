@@ -22,6 +22,8 @@ export class TaskAPI {
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
+    console.log(method, url.href);
+
     if (method === "OPTIONS") {
       return new Response(null, { status: 200, headers });
     }
@@ -341,7 +343,6 @@ export class TaskAPI {
         pathParts[1] === "canvas" && pathParts[2] === "sticky_notes"
       ) {
         const projectInfo = await this.parser.readProjectInfo();
-        console.debug(projectInfo);
         return new Response(JSON.stringify(projectInfo.stickyNotes), {
           headers,
         });
@@ -505,7 +506,6 @@ export class TaskAPI {
         });
       }
 
-
       // POST /api/import/csv/tasks
       if (
         method === "POST" && pathParts.length === 4 &&
@@ -645,7 +645,6 @@ export class TaskAPI {
 
     return csv;
   }
-
 
   private parseTasksCSV(csvContent: string): Task[] {
     const lines = csvContent.trim().split("\n");

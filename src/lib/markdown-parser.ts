@@ -83,7 +83,7 @@ export class MarkdownParser {
         console.log(`Removed old backup: ${file.name}`);
       }
     } catch (error) {
-      console.warn("Failed to cleanup old backups:", error);
+      console.warn("Failed to cleanup old backups:", (error as Error).message);
     }
   }
 
@@ -336,6 +336,18 @@ export class MarkdownParser {
       i++;
     }
 
+    console.debug(
+      "Something is getting corrupted either at read or write - Parsed INFO",
+      {
+        name: projectName,
+        description,
+        notes,
+        goals,
+        stickyNotes,
+        mindmaps,
+      },
+    );
+
     return {
       name: projectName,
       description,
@@ -565,7 +577,19 @@ export class MarkdownParser {
 
       // Parse sticky note (## StickyNote Content {color: yellow; position: {x: 100, y: 200}})
       if (line.startsWith("## ")) {
-        const stickyNoteMatch = line.match(/^## (.+?)\s*\{(.+)\}$/);
+        let stickyNoteMatch = line.match(/^## (.+?)\s*\{(.+)\}$/);
+
+        // If no match, look for config in the content and try to extract it
+        if (!stickyNoteMatch) {
+          // Try to find config pattern anywhere in the line
+          const configMatch = line.match(/^## (.+?)\s*(.*)$/);
+          if (configMatch) {
+            const [, title, rest] = configMatch;
+            // Look for configuration in the collected content later
+            stickyNoteMatch = [line, title, ""]; // We'll parse config from content
+          }
+        }
+
         if (stickyNoteMatch) {
           const [, headerContent, configStr] = stickyNoteMatch;
           i++;
@@ -598,6 +622,7 @@ export class MarkdownParser {
           }
 
           // Collect content after ID comment until next section
+          let extractedConfig = "";
           while (i < lines.length) {
             const currentLine = lines[i].trim();
 
@@ -609,10 +634,27 @@ export class MarkdownParser {
               break;
             }
 
-            // Collect content (preserve original spacing)
-            bodyContent += (bodyContent ? "<br>" : "") + lines[i];
+            // Check if this line contains configuration pattern
+            const configInContentMatch = lines[i].match(
+              /^(.+?)\s*\{(.+)\}\s*$/,
+            );
+            if (configInContentMatch && !extractedConfig) {
+              // Extract config and clean content
+              const [, cleanContent, foundConfig] = configInContentMatch;
+              extractedConfig = foundConfig;
+              if (cleanContent.trim()) {
+                bodyContent += (bodyContent ? "\n" : "") +
+                  cleanContent.trim();
+              }
+            } else {
+              // Collect content (preserve original spacing)
+              bodyContent += (bodyContent ? "\n" : "") + lines[i];
+            }
             i++;
           }
+
+          // Use extracted config if we didn't have one in the header
+          const finalConfigStr = configStr || extractedConfig;
 
           // ALL sticky notes now use "Sticky Note" header, content is always in body
           const finalContent = bodyContent.trim() || headerContent;
@@ -624,15 +666,19 @@ export class MarkdownParser {
             position: { x: 0, y: 0 },
           };
 
+          // console.debug("Before Parsed Sticky Note", stickyNote);
+
           // Parse config string - handle nested braces properly
-          const configPairs = this.parseConfigString(configStr);
+          const configPairs = this.parseConfigString(finalConfigStr);
           for (const [key, value] of configPairs) {
             if (key && value) {
               switch (key) {
                 case "color":
+                  console.debug("PARSING COLOR");
                   stickyNote.color = value as StickyNote["color"];
                   break;
                 case "position":
+                  console.debug("PARSING POSITION");
                   try {
                     const posMatch = value.match(
                       /\{\s*x:\s*(\d+),\s*y:\s*(\d+)\s*\}/,
@@ -648,11 +694,13 @@ export class MarkdownParser {
                   }
                   break;
                 case "size":
+                  console.debug("PARSING SIZE");
                   try {
                     const sizeMatch = value.match(
                       /\{\s*width:\s*(\d+),\s*height:\s*(\d+)\s*\}/,
                     );
                     if (sizeMatch) {
+                      console.debug("APPLY SIZE");
                       stickyNote.size = {
                         width: parseInt(sizeMatch[1]),
                         height: parseInt(sizeMatch[2]),
@@ -666,6 +714,7 @@ export class MarkdownParser {
             }
           }
 
+          // console.debug("Parsed Sticky Note", stickyNote);
           stickyNotes.push(stickyNote);
           continue;
         }
@@ -941,8 +990,9 @@ export class MarkdownParser {
     }
 
     content = content.trim();
+
     // Add configuration section
-    content += "<!-- Configurations -->\n# Configurations\n\n";
+    content += "\n<!-- Configurations -->\n# Configurations\n\n";
     content += `Start Date: ${
       config.startDate || new Date().toISOString().split("T")[0]
     }\n`;
@@ -968,17 +1018,14 @@ export class MarkdownParser {
     }
 
     // Add notes section
-    // if (projectInfo.notes && projectInfo.notes.length > 0) {
     content += "<!-- Notes -->\n# Notes\n\n";
     for (const note of projectInfo.notes) {
       content += `## ${note.title}\n\n`;
       content += `<!-- id: ${note.id} -->\n`;
       content += `${note.content}\n\n`;
     }
-    // }
 
     // Add goals section
-    // if (projectInfo.goals && projectInfo.goals.length > 0) {
     content += "<!-- Goals -->\n# Goals\n\n";
     for (const goal of projectInfo.goals) {
       console.log("Goal", goal);
@@ -995,34 +1042,29 @@ export class MarkdownParser {
         content += `${line}\n\n`;
       }
     }
-    // }
-    //
+
     // Add canvas section
-    // if (projectInfo.stickyNotes && projectInfo.stickyNotes.length > 0) {
-    console.debug("Append canvas line.");
     content += "<!-- Canvas -->\n# Canvas\n\n";
     for (const stickyNote of projectInfo.stickyNotes) {
-      const sizeStr = stickyNote.size
-        ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
-        : "";
-      // For multiline content, use "Sticky note" as header and put all content in body
-      const hasNewlines = stickyNote.content.includes("\n");
-      const title = hasNewlines ? "Sticky note" : stickyNote.content;
-      const bodyContent = hasNewlines ? stickyNote.content : "";
+      // Generate sticky note markdown - ALWAYS use "Sticky Note" as header
+      const stickyNoteLines = [
+        `## Sticky note {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}; size: {width: ${
+          stickyNote.size?.width || 0
+        }, height: ${stickyNote.size?.height || 0}}}`,
+        "",
+        `<!-- id: ${stickyNote.id} -->`,
+        stickyNote.content,
+        "",
+      ];
 
-      content +=
-        `## ${title} {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}\n\n`;
-      content += `<!-- id: ${stickyNote.id} -->\n`;
-      if (bodyContent.trim()) {
-        content += `${bodyContent}\n\n`;
-      } else {
-        content += `\n`;
-      }
+      console.debug(
+        "I think it is here (it returns 0 but it shouldnt) : ",
+        stickyNoteLines,
+      );
+      content += stickyNoteLines.join("\n");
     }
-    // }
 
     // Add mindmap section
-    // if (projectInfo.mindmaps && projectInfo.mindmaps.length > 0) {
     content += "<!-- Mindmap -->\n# Mindmap\n\n";
     for (const mindmap of projectInfo.mindmaps) {
       content += `## ${mindmap.title}\n\n`;
@@ -1035,7 +1077,6 @@ export class MarkdownParser {
       }
       content += "\n";
     }
-    // }
 
     content += "<!-- Board -->\n# Board\n\n";
 
@@ -1791,43 +1832,34 @@ export class MarkdownParser {
     let content = `# ${projectInfo.name}\n`;
 
     // Add project description (filter out empty lines)
-    // if (projectInfo.description && projectInfo.description.length > 0) {
     const cleanDescription = projectInfo.description.filter((line) =>
       line.trim() !== ""
     );
     if (cleanDescription.length > 0) {
       content += "\n" + cleanDescription.join("\n") + "\n";
     }
-    // }
 
     // Add configuration section
-    content += "<!-- Configurations -->\n# Configurations\n\n";
+    content += "\n<!-- Configurations -->\n# Configurations\n\n";
     content += `Start Date: ${
       config.startDate || new Date().toISOString().split("T")[0]
     }\n`;
-    // if (config.workingDaysPerWeek && config.workingDaysPerWeek !== 5) {
     content += `Working Days: ${config.workingDaysPerWeek ?? 5}\n`;
-    // }
     content += "\n";
 
-    // if (config.assignees && config.assignees.length > 0) {
     content += "Assignees:\n";
     config.assignees?.forEach((assignee) => {
       content += `- ${assignee}\n`;
     });
     content += "\n";
-    // }
 
-    // if (config.tags && config.tags.length > 0) {
     content += "Tags:\n";
     config.tags?.forEach((tag) => {
       content += `- ${tag}\n`;
     });
     content += "\n";
-    // }
 
     // Add notes section
-    // if (projectInfo.notes && projectInfo.notes.length > 0) {
     content += "<!-- Notes -->\n# Notes\n\n";
     for (const note of projectInfo.notes) {
       content += `## ${note.title}\n\n`;
@@ -1838,56 +1870,46 @@ export class MarkdownParser {
         content += `\n`;
       }
     }
-    // }
 
     // Add goals section
-    // if (projectInfo.goals && projectInfo.goals.length > 0) {
     content += "<!-- Goals -->\n# Goals\n\n";
     for (const goal of projectInfo.goals) {
       content +=
         `## ${goal.title} {type: ${goal.type}; kpi: ${goal.kpi}; start: ${goal.startDate}; end: ${goal.endDate}; status: ${goal.status}}\n\n`;
       content += `<!-- id: ${goal.id} -->\n`;
       if (goal.description && goal.description.trim()) {
-        console.log("description", goal.description);
         const line = goal.description.substring(
           0,
           goal.description.indexOf("<!--"),
         );
-        console.log("line", line);
         content += `${line}\n\n`;
-        // content += `${goal.description}\n\n`;
       } else {
         content += `\n`;
       }
     }
-    // }
 
     // Add canvas section
-    // if (projectInfo.stickyNotes && projectInfo.stickyNotes.length > 0) {
-    console.debug("Append the canvas line.");
     content += "<!-- Canvas -->\n# Canvas\n\n";
     for (const stickyNote of projectInfo.stickyNotes) {
+      // Generate sticky note markdown - ALWAYS use "Sticky Note" as header
       const sizeStr = stickyNote.size
         ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
         : "";
-      // For multiline content, use "Sticky note" as header and put all content in body
-      const hasNewlines = stickyNote.content.includes("\n");
-      const title = hasNewlines ? "Sticky note" : stickyNote.content;
-      const bodyContent = hasNewlines ? stickyNote.content : "";
 
-      content +=
-        `## ${title} {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}\n\n`;
-      content += `<!-- id: ${stickyNote.id} -->\n`;
-      if (bodyContent.trim()) {
-        content += `${bodyContent}\n\n`;
-      } else {
-        content += `\n`;
-      }
+      console.log("sizeSTR", sizeStr);
+
+      const stickyNoteLines = [
+        `## Sticky note {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}`,
+        "",
+        `<!-- id: ${stickyNote.id} -->`,
+        stickyNote.content,
+        "",
+      ];
+
+      content += stickyNoteLines.join("\n");
     }
-    // }
 
     // Add mindmap section
-    // if (projectInfo.mindmaps && projectInfo.mindmaps.length > 0) {
     content += "<!-- Mindmap -->\n# Mindmap\n\n";
     for (const mindmap of projectInfo.mindmaps) {
       content += `## ${mindmap.title}\n\n`;
@@ -1900,7 +1922,6 @@ export class MarkdownParser {
       }
       content += "\n";
     }
-    // }
 
     // Add board section
     content += "<!-- Board -->\n# Board\n\n";
@@ -2024,6 +2045,7 @@ export class MarkdownParser {
   }
 
   private parseConfigString(configStr: string): Array<[string, string]> {
+    console.debug("parseConfigString", configStr);
     const pairs: Array<[string, string]> = [];
     let i = 0;
 
@@ -2069,6 +2091,7 @@ export class MarkdownParser {
       while (i < configStr.length && configStr[i] === " ") i++;
     }
 
+    console.debug("Parsed parseConfigString", pairs);
     return pairs;
   }
 

@@ -1,6 +1,7 @@
 # MD Planner
 
 Markdown powered task manager tool.
+
 <!-- Configurations -->
 # Configurations
 
@@ -23,17 +24,14 @@ Tags:
 <!-- Notes -->
 # Notes
 
-## Hello World
+## 2025-08-17
 
 <!-- id: note_1 -->
-# 2025-08-17
+# My Title
 
-Bonjour Monde !
+## My Subtitle
 
-## Tasks
-
-- Task #1
-- Task #2
+Some random text
 
 <!-- Goals -->
 # Goals
@@ -47,44 +45,27 @@ Bonjour Monde !
 <!-- id: goal_2 -->
 
 
-## New New Goal {type: project; kpi: Stop Breaking the app every 5 min; start: 2025-08-15; end: 2025-08-18; status: on-track}
-
-<!-- id: goal_3 -->
-
 <!-- Canvas -->
 # Canvas
 
-## Sticky note {color: pink; position: {x: 790, y: 90}; size: {width: 0, height: 0}}
+## Sticky note {color: yellow; position: {x: 158, y: 100}; size: {width: 150, height: 100}}
 
 <!-- id: sticky_note_1 -->
-Risk analysis<br><br>
+Todos
 
-## Sticky note {color: pink; position: {x: 897, y: 140}; size: {width: 122, height: 76}}
+## Sticky note {color: yellow; position: {x: 453, y: 103}; size: {width: 150, height: 100}}
 
 <!-- id: sticky_note_2 -->
-Markdown Backup<br><br>cool !<br><br>Fixed !<br><br><br><br>
+On Going
 
-## TODOs<br><br><br><br> {color: green; position: {x: 288, y: 86}; size: {width: 144, height: 76}}
+## Sticky note {color: green; position: {x: 774, y: 97}; size: {width: 150, height: 100}}
 
 <!-- id: sticky_note_3 -->
-
-## Sticky note {color: yellow; position: {x: 426, y: 221}; size: {width: 0, height: 0}}
+Done
+## Sticky note {color: purple; position: {x: 161, y: 260}; size: {width: 763, height: 238}}
 
 <!-- id: sticky_note_4 -->
-Package the whole thing<br><br>1. Simplify Usage<br><br><br>
-
-## New New Note<br><br> {color: orange; position: {x: 865, y: 317}}
-
-<!-- id: sticky_note_5 -->
-
-## It is sticky !<br><br><br> {color: blue; position: {x: 160, y: 277}; size: {width: 144, height: 76}}
-
-<!-- id: sticky_note_6 -->
-
-## Sticky note {color: green; position: {x: 208, y: 409}; size: {width: 0, height: 0}}
-
-<!-- id: sticky_note_7 -->
-Panning<br><br><br><br><br><br><br><br><br><br><br>
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 
 <!-- Mindmap -->
 # Mindmap
@@ -97,6 +78,7 @@ Panning<br><br><br><br><br><br><br><br><br><br><br>
   - Sub Level
     - Level 2
   - Sub Level #2
+  - Edit mindmap
 
 <!-- Board -->
 # Board
