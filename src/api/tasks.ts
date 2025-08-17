@@ -620,10 +620,11 @@ export class TaskAPI {
       "Blocked By",
       "Milestone",
       "Description",
+      "Parent ID",
     ];
     let csv = headers.join(",") + "\n";
 
-    const flatTasks = this.flattenTasks(tasks);
+    const flatTasks = this.flattenTasksWithParent(tasks);
 
     for (const task of flatTasks) {
       const row = [
@@ -639,6 +640,7 @@ export class TaskAPI {
         this.escapeCSV(task.config.blocked_by?.join(", ") || ""),
         this.escapeCSV(task.config.milestone || ""),
         this.escapeCSV(task.description?.join(" ") || ""),
+        this.escapeCSV(task.parentId || ""),
       ];
       csv += row.join(",") + "\n";
     }
@@ -650,12 +652,12 @@ export class TaskAPI {
     const lines = csvContent.trim().split("\n");
     if (lines.length < 2) return [];
 
-    const tasks: Task[] = [];
+    const tasks: Array<Task & { parentId?: string }> = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = this.parseCSVLine(lines[i]);
       if (values.length >= 4) {
-        const task: Task = {
+        const task: Task & { parentId?: string } = {
           id: values[0] || `task_${Date.now()}_${i}`,
           title: values[1] || "",
           section: values[2] || "Backlog",
@@ -674,13 +676,40 @@ export class TaskAPI {
             milestone: values[10] || undefined,
           },
           description: values[11] ? [values[11]] : undefined,
+          parentId: values[12] || undefined,
         };
 
         tasks.push(task);
       }
     }
 
-    return tasks;
+    return this.buildTaskHierarchy(tasks);
+  }
+
+  private buildTaskHierarchy(flatTasks: Array<Task & { parentId?: string }>): Task[] {
+    const taskMap = new Map<string, Task>();
+    const rootTasks: Task[] = [];
+
+    // First pass: create all tasks
+    for (const task of flatTasks) {
+      const { parentId, ...taskWithoutParentId } = task;
+      taskMap.set(task.id, { ...taskWithoutParentId, children: [] });
+    }
+
+    // Second pass: build hierarchy
+    for (const task of flatTasks) {
+      const taskObj = taskMap.get(task.id)!;
+      
+      if (task.parentId && taskMap.has(task.parentId)) {
+        const parent = taskMap.get(task.parentId)!;
+        if (!parent.children) parent.children = [];
+        parent.children.push(taskObj);
+      } else {
+        rootTasks.push(taskObj);
+      }
+    }
+
+    return rootTasks;
   }
 
   private parseCanvasCSV(csvContent: string): any[] {
@@ -723,6 +752,18 @@ export class TaskAPI {
       flattened.push(task);
       if (task.children && task.children.length > 0) {
         flattened.push(...this.flattenTasks(task.children));
+      }
+    }
+    return flattened;
+  }
+
+  private flattenTasksWithParent(tasks: Task[], parentId?: string): Array<Task & { parentId?: string }> {
+    const flattened: Array<Task & { parentId?: string }> = [];
+    for (const task of tasks) {
+      const taskWithParent = { ...task, parentId };
+      flattened.push(taskWithParent);
+      if (task.children && task.children.length > 0) {
+        flattened.push(...this.flattenTasksWithParent(task.children, task.id));
       }
     }
     return flattened;
@@ -1075,93 +1116,36 @@ export class TaskAPI {
     try {
       // Read the current markdown file
       const currentContent = await Deno.readTextFile(this.parser.filePath);
-
-      // Find the Todo section and append tasks there
       const lines = currentContent.split("\n");
-      let todoSectionIndex = -1;
-      let insertIndex = -1;
 
-      // Find the "## Todo" section
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === "## Todo") {
-          todoSectionIndex = i;
-          // Find the next section or end of file to insert before
-          for (let j = i + 1; j < lines.length; j++) {
-            if (lines[j].startsWith("## ") && lines[j].trim() !== "## Todo") {
-              insertIndex = j - 1;
-              // Skip backward over any empty lines
-              while (insertIndex > i && lines[insertIndex].trim() === "") {
-                insertIndex--;
-              }
-              insertIndex++; // Insert after the last task/content
-              break;
-            }
-          }
-          if (insertIndex === -1) {
-            insertIndex = lines.length;
-          }
-          break;
-        }
-      }
-
-      // If no Todo section found, we'll add it after the Board header
-      if (todoSectionIndex === -1) {
-        const boardIndex = lines.findIndex((line) => line.trim() === "# Board");
-        if (boardIndex !== -1) {
-          // Insert Todo section after Board header
-          lines.splice(boardIndex + 1, 0, "", "## Todo", "");
-          insertIndex = boardIndex + 4;
-        } else {
-          // Append at end if no Board section found
-          lines.push("", "<!-- Board -->", "# Board", "", "## Todo", "");
-          insertIndex = lines.length;
-        }
-      }
-
-      // Generate markdown for each task
-      const taskLines: string[] = [];
+      // Group tasks by section
+      const tasksBySection = new Map<string, Task[]>();
       for (const task of tasks) {
-        const checkbox = task.completed ? "[x]" : "[ ]";
-        const configParts: string[] = [];
-
-        if (task.config.tag && task.config.tag.length > 0) {
-          configParts.push(`tag: [${task.config.tag.join(", ")}]`);
+        const section = task.section || "Todo";
+        if (!tasksBySection.has(section)) {
+          tasksBySection.set(section, []);
         }
-        if (task.config.due_date) {
-          configParts.push(`due_date: ${task.config.due_date}`);
-        }
-        if (task.config.assignee) {
-          configParts.push(`assignee: ${task.config.assignee}`);
-        }
-        if (task.config.priority) {
-          configParts.push(`priority: ${task.config.priority}`);
-        }
-        if (task.config.effort) {
-          configParts.push(`effort: ${task.config.effort}`);
-        }
-        if (task.config.milestone) {
-          configParts.push(`milestone: ${task.config.milestone}`);
-        }
-        if (task.config.blocked_by && task.config.blocked_by.length > 0) {
-          configParts.push(`blocked_by: ${task.config.blocked_by.join(", ")}`);
-        }
-
-        const configStr = configParts.length > 0
-          ? ` {${configParts.join("; ")}}`
-          : "";
-        taskLines.push(`- ${checkbox} (${task.id}) ${task.title}${configStr}`);
-
-        // Add description if present
-        if (task.description && task.description.length > 0) {
-          task.description.forEach((desc) => {
-            taskLines.push(`  ${desc}`);
-          });
-        }
-        taskLines.push(""); // Empty line after each task
+        tasksBySection.get(section)!.push(task);
       }
 
-      // Insert the new tasks
-      lines.splice(insertIndex, 0, ...taskLines);
+      // Find Board section first
+      const boardIndex = lines.findIndex((line) => line.trim() === "# Board");
+      if (boardIndex === -1) {
+        // Add Board section if it doesn't exist
+        lines.push("", "<!-- Board -->", "# Board", "");
+      }
+
+      // Process each section
+      for (const [sectionName, sectionTasks] of tasksBySection) {
+        const insertIndex = this.findOrCreateSectionInsertPoint(lines, sectionName);
+        
+        // Generate markdown for tasks in this section
+        const taskLines: string[] = [];
+        this.generateTaskMarkdown(sectionTasks, taskLines, 0);
+        
+        // Insert the new tasks
+        lines.splice(insertIndex, 0, ...taskLines);
+      }
 
       // Write the updated content back with backup
       await this.parser.safeWriteFile(lines.join("\n"));
@@ -1170,6 +1154,115 @@ export class TaskAPI {
     } catch (error) {
       console.error("Error appending tasks to markdown:", error);
       return 0;
+    }
+  }
+
+  private findOrCreateSectionInsertPoint(lines: string[], sectionName: string): number {
+    // Find the section header
+    const sectionHeaderPattern = `## ${sectionName}`;
+    let sectionIndex = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim() === sectionHeaderPattern) {
+        sectionIndex = i;
+        break;
+      }
+    }
+
+    if (sectionIndex === -1) {
+      // Section doesn't exist, create it
+      const boardIndex = lines.findIndex((line) => line.trim() === "# Board");
+      if (boardIndex !== -1) {
+        // Insert after Board header and before any existing sections
+        let insertPosition = boardIndex + 1;
+        
+        // Skip any empty lines after Board header
+        while (insertPosition < lines.length && lines[insertPosition].trim() === "") {
+          insertPosition++;
+        }
+        
+        // Insert new section
+        lines.splice(insertPosition, 0, "", `## ${sectionName}`, "");
+        return insertPosition + 3; // Return position after the new section header
+      } else {
+        // Fallback: append at end
+        lines.push("", "<!-- Board -->", "# Board", "", `## ${sectionName}`, "");
+        return lines.length;
+      }
+    } else {
+      // Section exists, find insertion point within it
+      let insertIndex = -1;
+      
+      // Find the next section or end of file to insert before
+      for (let j = sectionIndex + 1; j < lines.length; j++) {
+        if (lines[j].startsWith("## ")) {
+          insertIndex = j - 1;
+          // Skip backward over any empty lines
+          while (insertIndex > sectionIndex && lines[insertIndex].trim() === "") {
+            insertIndex--;
+          }
+          insertIndex++; // Insert after the last task/content
+          break;
+        }
+      }
+      
+      if (insertIndex === -1) {
+        insertIndex = lines.length;
+      }
+      
+      return insertIndex;
+    }
+  }
+
+  private generateTaskMarkdown(tasks: Task[], lines: string[], depth: number = 0) {
+    const indent = "  ".repeat(depth);
+    
+    for (const task of tasks) {
+      const checkbox = task.completed ? "[x]" : "[ ]";
+      const configParts: string[] = [];
+
+      if (task.config.tag && task.config.tag.length > 0) {
+        configParts.push(`tag: [${task.config.tag.join(", ")}]`);
+      }
+      if (task.config.due_date) {
+        configParts.push(`due_date: ${task.config.due_date}`);
+      }
+      if (task.config.assignee) {
+        configParts.push(`assignee: ${task.config.assignee}`);
+      }
+      if (task.config.priority) {
+        configParts.push(`priority: ${task.config.priority}`);
+      }
+      if (task.config.effort) {
+        configParts.push(`effort: ${task.config.effort}`);
+      }
+      if (task.config.milestone) {
+        configParts.push(`milestone: ${task.config.milestone}`);
+      }
+      if (task.config.blocked_by && task.config.blocked_by.length > 0) {
+        configParts.push(`blocked_by: ${task.config.blocked_by.join(", ")}`);
+      }
+
+      const configStr = configParts.length > 0
+        ? ` {${configParts.join("; ")}}`
+        : "";
+      lines.push(`${indent}- ${checkbox} (${task.id}) ${task.title}${configStr}`);
+
+      // Add description if present
+      if (task.description && task.description.length > 0) {
+        task.description.forEach((desc) => {
+          lines.push(`${indent}  ${desc}`);
+        });
+      }
+
+      // Recursively add children (subtasks)
+      if (task.children && task.children.length > 0) {
+        this.generateTaskMarkdown(task.children, lines, depth + 1);
+      }
+
+      if (depth === 0) {
+        lines.push(""); // Empty line after each top-level task
+      }
     }
   }
 }

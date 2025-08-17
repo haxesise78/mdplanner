@@ -1691,7 +1691,7 @@ class TaskManager {
         "py-4",
         "sm:py-8",
       );
-      main.classList.add("w-full", "h-screen", "p-2", "overflow-auto");
+      main.classList.add("w-full", "h-screen", "p-2", "pb-16", "overflow-auto");
 
       // Make body fill the screen
       body.classList.add("h-screen", "overflow-hidden");
@@ -1713,7 +1713,7 @@ class TaskManager {
         "py-4",
         "sm:py-8",
       );
-      main.classList.remove("w-full", "h-screen", "p-2", "overflow-auto");
+      main.classList.remove("w-full", "h-screen", "p-2", "pb-16", "overflow-auto");
 
       // Restore body
       body.classList.remove("h-screen", "overflow-hidden");
@@ -2753,6 +2753,8 @@ class TaskManager {
 
     if (assigneeName && !this.projectConfig.assignees.includes(assigneeName)) {
       this.projectConfig.assignees.push(assigneeName);
+      // Sort assignees alphabetically
+      this.projectConfig.assignees.sort();
       input.value = "";
       this.renderAssignees();
       this.updateConfigStats();
@@ -2775,6 +2777,8 @@ class TaskManager {
 
     if (tagName && !this.projectConfig.tags.includes(tagName)) {
       this.projectConfig.tags.push(tagName);
+      // Sort tags alphabetically
+      this.projectConfig.tags.sort();
       input.value = "";
       this.renderTags();
       this.updateConfigStats();
@@ -3488,8 +3492,17 @@ class TaskManager {
     // Use ResizeObserver to detect size changes
     if (!window.ResizeObserver) return; // Fallback for older browsers
 
+    // Track if this is the initial setup to avoid triggering on initial render
+    let isInitialSetup = true;
+
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
+        // Skip the first resize event which is triggered during initial setup
+        if (isInitialSetup) {
+          isInitialSetup = false;
+          continue;
+        }
+
         const { inlineSize: width, blockSize: height } =
           entry.borderBoxSize.at(0);
         // Debounce the save operation to avoid too many API calls

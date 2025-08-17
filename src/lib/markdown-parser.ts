@@ -14,6 +14,7 @@ export class MarkdownParser {
   private filePath: string;
   private maxBackups: number;
   private backupDir: string;
+  private lastContentHash: string | null = null;
 
   constructor(filePath: string) {
     this.filePath = filePath;
@@ -23,15 +24,37 @@ export class MarkdownParser {
   }
 
   /**
+   * Calculate SHA-256 hash of content
+   */
+  private async calculateHash(content: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(content);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
    * Creates a backup of the current markdown file before making changes
    */
   private async createBackup(): Promise<void> {
     try {
-      // Ensure backup directory exists
-      await Deno.mkdir(this.backupDir, { recursive: true });
-
       // Read current file content
       const content = await Deno.readTextFile(this.filePath);
+      
+      // Calculate hash of current content
+      const currentHash = await this.calculateHash(content);
+      
+      // Skip backup if content hasn't changed
+      if (this.lastContentHash === currentHash) {
+        return;
+      }
+      
+      // Update the last content hash
+      this.lastContentHash = currentHash;
+
+      // Ensure backup directory exists
+      await Deno.mkdir(this.backupDir, { recursive: true });
 
       // Create timestamped backup filename
       const fileName = this.filePath.split("/").pop() || "structure.md";
@@ -79,8 +102,15 @@ export class MarkdownParser {
       // Remove old backups beyond maxBackups limit
       const filesToDelete = backupFiles.slice(this.maxBackups);
       for (const file of filesToDelete) {
-        await Deno.remove(`${this.backupDir}/${file.name}`);
-        console.log(`Removed old backup: ${file.name}`);
+        try {
+          await Deno.remove(`${this.backupDir}/${file.name}`);
+          console.log(`Removed old backup: ${file.name}`);
+        } catch (error) {
+          // Ignore file not found errors
+          if ((error as Deno.errors.NotFound)?.name !== 'NotFound') {
+            console.warn(`Failed to remove backup ${file.name}:`, error);
+          }
+        }
       }
     } catch (error) {
       console.warn("Failed to cleanup old backups:", (error as Error).message);
@@ -335,18 +365,6 @@ export class MarkdownParser {
 
       i++;
     }
-
-    console.debug(
-      "Something is getting corrupted either at read or write - Parsed INFO",
-      {
-        name: projectName,
-        description,
-        notes,
-        goals,
-        stickyNotes,
-        mindmaps,
-      },
-    );
 
     return {
       name: projectName,
@@ -666,19 +684,15 @@ export class MarkdownParser {
             position: { x: 0, y: 0 },
           };
 
-          // console.debug("Before Parsed Sticky Note", stickyNote);
-
           // Parse config string - handle nested braces properly
           const configPairs = this.parseConfigString(finalConfigStr);
           for (const [key, value] of configPairs) {
             if (key && value) {
               switch (key) {
                 case "color":
-                  console.debug("PARSING COLOR");
                   stickyNote.color = value as StickyNote["color"];
                   break;
                 case "position":
-                  console.debug("PARSING POSITION");
                   try {
                     const posMatch = value.match(
                       /\{\s*x:\s*(\d+),\s*y:\s*(\d+)\s*\}/,
@@ -694,13 +708,11 @@ export class MarkdownParser {
                   }
                   break;
                 case "size":
-                  console.debug("PARSING SIZE");
                   try {
                     const sizeMatch = value.match(
                       /\{\s*width:\s*(\d+),\s*height:\s*(\d+)\s*\}/,
                     );
                     if (sizeMatch) {
-                      console.debug("APPLY SIZE");
                       stickyNote.size = {
                         width: parseInt(sizeMatch[1]),
                         height: parseInt(sizeMatch[2]),
@@ -714,7 +726,6 @@ export class MarkdownParser {
             }
           }
 
-          // console.debug("Parsed Sticky Note", stickyNote);
           stickyNotes.push(stickyNote);
           continue;
         }
@@ -965,8 +976,6 @@ export class MarkdownParser {
     const config = this.parseProjectConfig(existingContent);
     const projectInfo = this.parseProjectInfo(existingContent);
 
-    console.debug("existingContent", existingContent);
-
     let content = `# ${projectInfo.name}\n\n`;
 
     // Add project description
@@ -1003,7 +1012,8 @@ export class MarkdownParser {
 
     if (config.assignees && config.assignees.length > 0) {
       content += "Assignees:\n";
-      config.assignees.forEach((assignee) => {
+      // Sort assignees alphabetically
+      [...config.assignees].sort().forEach((assignee) => {
         content += `- ${assignee}\n`;
       });
       content += "\n";
@@ -1011,7 +1021,8 @@ export class MarkdownParser {
 
     if (config.tags && config.tags.length > 0) {
       content += "Tags:\n";
-      config.tags.forEach((tag) => {
+      // Sort tags alphabetically
+      [...config.tags].sort().forEach((tag) => {
         content += `- ${tag}\n`;
       });
       content += "\n";
@@ -1028,17 +1039,14 @@ export class MarkdownParser {
     // Add goals section
     content += "<!-- Goals -->\n# Goals\n\n";
     for (const goal of projectInfo.goals) {
-      console.log("Goal", goal);
       content +=
         `## ${goal.title} {type: ${goal.type}; kpi: ${goal.kpi}; start: ${goal.startDate}; end: ${goal.endDate}; status: ${goal.status}}\n\n`;
       content += `<!-- id: ${goal.id} -->\n`;
       if (goal.description) {
-        console.log("description", goal.description);
         const line = goal.description.substring(
           0,
           goal.description.indexOf("<!--"),
         );
-        console.log("line", line);
         content += `${line}\n\n`;
       }
     }
@@ -1057,10 +1065,6 @@ export class MarkdownParser {
         "",
       ];
 
-      console.debug(
-        "I think it is here (it returns 0 but it shouldnt) : ",
-        stickyNoteLines,
-      );
       content += stickyNoteLines.join("\n");
     }
 
@@ -1279,7 +1283,6 @@ export class MarkdownParser {
     try {
       const content = await Deno.readTextFile(this.filePath);
       const config = this.parseProjectConfig(content);
-      console.log("Parsed config:", config);
       return config;
     } catch (error) {
       console.error("Error reading project config:", error);
@@ -1340,7 +1343,6 @@ export class MarkdownParser {
       }
     }
 
-    console.log("Final parsed config:", config);
     return config;
   }
 
@@ -1476,7 +1478,6 @@ export class MarkdownParser {
 
   async saveProjectConfig(config: ProjectConfig): Promise<boolean> {
     try {
-      console.log("saveProjectConfig called with:", config);
       const content = await Deno.readTextFile(this.filePath);
       console.log("Current content length:", content.length);
       const updatedContent = this.updateProjectConfigInMarkdown(
@@ -1522,8 +1523,8 @@ export class MarkdownParser {
 
         if (config.assignees && config.assignees.length > 0) {
           result.push("Assignees:");
-          // Deduplicate assignees
-          const uniqueAssignees = [...new Set(config.assignees)];
+          // Deduplicate and sort assignees alphabetically
+          const uniqueAssignees = [...new Set(config.assignees)].sort();
           uniqueAssignees.forEach((assignee) => {
             result.push(`- ${assignee}`);
           });
@@ -1532,8 +1533,8 @@ export class MarkdownParser {
 
         if (config.tags && config.tags.length > 0) {
           result.push("Tags:");
-          // Deduplicate tags
-          const uniqueTags = [...new Set(config.tags)];
+          // Deduplicate and sort tags alphabetically
+          const uniqueTags = [...new Set(config.tags)].sort();
           uniqueTags.forEach((tag) => {
             result.push(`- ${tag}`);
           });
@@ -1565,8 +1566,8 @@ export class MarkdownParser {
 
         if (config.assignees && config.assignees.length > 0) {
           result.push("Assignees:");
-          // Deduplicate assignees
-          const uniqueAssignees = [...new Set(config.assignees)];
+          // Deduplicate and sort assignees alphabetically
+          const uniqueAssignees = [...new Set(config.assignees)].sort();
           uniqueAssignees.forEach((assignee) => {
             result.push(`- ${assignee}`);
           });
@@ -1575,8 +1576,8 @@ export class MarkdownParser {
 
         if (config.tags && config.tags.length > 0) {
           result.push("Tags:");
-          // Deduplicate tags
-          const uniqueTags = [...new Set(config.tags)];
+          // Deduplicate and sort tags alphabetically
+          const uniqueTags = [...new Set(config.tags)].sort();
           uniqueTags.forEach((tag) => {
             result.push(`- ${tag}`);
           });
@@ -1707,11 +1708,11 @@ export class MarkdownParser {
       }
 
       if (boardIndex === -1) {
-        console.debug("No Board section, add at end");
+        // No Board section, add at end
         lines.push("", "<!-- Canvas -->", "# Canvas", "");
         canvasIndex = lines.length - 4;
       } else {
-        console.debug("Insert before Board");
+        // Insert before Board
         lines.splice(boardIndex, 0, "<!-- Canvas -->", "# Canvas", "", "");
         canvasIndex = boardIndex;
       }
@@ -1823,7 +1824,6 @@ export class MarkdownParser {
   }
 
   private async saveProjectInfo(projectInfo: ProjectInfo): Promise<void> {
-    console.log("saveProjectInfo", projectInfo);
     const existingContent = await Deno.readTextFile(this.filePath);
     const config = this.parseProjectConfig(existingContent);
     const tasks = await this.readTasks();
@@ -1848,13 +1848,15 @@ export class MarkdownParser {
     content += "\n";
 
     content += "Assignees:\n";
-    config.assignees?.forEach((assignee) => {
+    // Sort assignees alphabetically
+    [...(config.assignees || [])].sort().forEach((assignee) => {
       content += `- ${assignee}\n`;
     });
     content += "\n";
 
     content += "Tags:\n";
-    config.tags?.forEach((tag) => {
+    // Sort tags alphabetically
+    [...(config.tags || [])].sort().forEach((tag) => {
       content += `- ${tag}\n`;
     });
     content += "\n";
@@ -1895,8 +1897,6 @@ export class MarkdownParser {
       const sizeStr = stickyNote.size
         ? `; size: {width: ${stickyNote.size.width}, height: ${stickyNote.size.height}}`
         : "";
-
-      console.log("sizeSTR", sizeStr);
 
       const stickyNoteLines = [
         `## Sticky note {color: ${stickyNote.color}; position: {x: ${stickyNote.position.x}, y: ${stickyNote.position.y}}${sizeStr}}`,
@@ -2045,7 +2045,6 @@ export class MarkdownParser {
   }
 
   private parseConfigString(configStr: string): Array<[string, string]> {
-    console.debug("parseConfigString", configStr);
     const pairs: Array<[string, string]> = [];
     let i = 0;
 
@@ -2091,7 +2090,6 @@ export class MarkdownParser {
       while (i < configStr.length && configStr[i] === " ") i++;
     }
 
-    console.debug("Parsed parseConfigString", pairs);
     return pairs;
   }
 
