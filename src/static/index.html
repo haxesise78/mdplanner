@@ -54,6 +54,122 @@
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
+        
+        /* Canvas styles */
+        .post-it {
+            position: absolute;
+            width: 200px;
+            min-height: 150px;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            cursor: move;
+            user-select: none;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            resize: both;
+            overflow: auto;
+            min-width: 150px;
+            min-height: 100px;
+        }
+        
+        .post-it:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        .post-it.dragging {
+            transform: rotate(5deg) scale(1.05);
+            z-index: 1000;
+        }
+        
+        .post-it.yellow { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
+        .post-it.pink { background-color: #fce7f3; border-left: 4px solid #ec4899; }
+        .post-it.blue { background-color: #dbeafe; border-left: 4px solid #3b82f6; }
+        .post-it.green { background-color: #d1fae5; border-left: 4px solid #10b981; }
+        .post-it.purple { background-color: #e9d5ff; border-left: 4px solid #8b5cf6; }
+        .post-it.orange { background-color: #fed7aa; border-left: 4px solid #f97316; }
+        
+        .post-it-controls {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            display: none;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            padding: 2px;
+        }
+        
+        .post-it:hover .post-it-controls {
+            display: flex;
+        }
+        
+        .post-it-controls button {
+            background: none;
+            border: none;
+            color: white;
+            padding: 2px 4px;
+            cursor: pointer;
+            border-radius: 2px;
+            font-size: 12px;
+        }
+        
+        .post-it-controls button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .canvas-grid {
+            background-image: 
+                linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        /* Mindmap styles */
+        .mindmap-node {
+            position: absolute;
+            background: white;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            min-width: 80px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .mindmap-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .mindmap-node.root {
+            background: #3b82f6;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .mindmap-node.level-1 {
+            background: #dbeafe;
+            border-color: #60a5fa;
+        }
+        
+        .mindmap-node.level-2 {
+            background: #f0f9ff;
+            border-color: #93c5fd;
+        }
+        
+        .mindmap-connection {
+            position: absolute;
+            border: 2px solid #6b7280;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
@@ -76,12 +192,6 @@
             <div class="hidden md:flex justify-between items-center h-16">
                 <div class="flex items-center space-x-4">
                     <h1 class="text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100">MD Planner</h1>
-                    <!-- File Operations (only in desktop app) -->
-                    <div id="fileOperations" class="">
-                        <button id="openFileBtn" class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors text-sm px-2 py-1 rounded border border-gray-300 dark:border-gray-600">
-                            📁 Open File
-                        </button>
-                    </div>
                 </div>
                 <div class="flex items-center space-x-2 lg:space-x-4">
                     <!-- View Toggle - responsive -->
@@ -103,6 +213,12 @@
                         </button>
                         <button id="goalsViewBtn" class="px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Goals
+                        </button>
+                        <button id="canvasViewBtn" class="hidden xl:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                            Canvas
+                        </button>
+                        <button id="mindmapViewBtn" class="hidden xl:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
+                            Mindmap
                         </button>
                         <button id="configViewBtn" class="hidden lg:block px-2 lg:px-3 py-1 rounded-md text-xs lg:text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">
                             Config
@@ -161,9 +277,17 @@
                         Goals
                     </button>
                 </div>
-                <button id="configViewBtnMobile" class="w-full px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
-                    Config
-                </button>
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="canvasViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Canvas
+                    </button>
+                    <button id="mindmapViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Mindmap
+                    </button>
+                    <button id="configViewBtnMobile" class="px-3 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 text-center">
+                        Config
+                    </button>
+                </div>
                 
                 <!-- Mobile search -->
                 <div class="relative mt-3">
@@ -173,12 +297,6 @@
                     </svg>
                 </div>
                 
-                <!-- Mobile file operations (only in desktop app) -->
-                <div id="fileOperationsMobile" class="">
-                    <button id="openFileBtnMobile" class="w-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors text-sm px-3 py-2 rounded border border-gray-300 dark:border-gray-600 mb-2">
-                        📁 Open File
-                    </button>
-                </div>
                 
                 <!-- Mobile add task -->
                 <button id="addTaskBtnMobile" class="w-full bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
@@ -478,6 +596,100 @@
             </div>
         </div>
 
+        <!-- Canvas View -->
+        <div id="canvasView" class="hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Canvas</h2>
+                    <div class="flex space-x-2">
+                        <button id="addPostItBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                            + Add Post-it
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Canvas Controls -->
+                <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm text-gray-600 dark:text-gray-400">Zoom:</label>
+                            <input type="range" id="canvasZoom" min="0.25" max="2" step="0.25" value="1" class="w-20">
+                            <span id="zoomLevel" class="text-sm text-gray-600 dark:text-gray-400">100%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Canvas Container -->
+                <div id="canvasContainer" class="relative overflow-hidden bg-white dark:bg-gray-900" style="height: 600px;">
+                    <div id="canvasViewport" class="absolute inset-0 cursor-grab">
+                        <div id="canvasGrid" class="absolute inset-0 opacity-20 hidden">
+                            <!-- Grid pattern will be generated here -->
+                        </div>
+                        <div id="canvasContent" class="relative w-full h-full">
+                            <!-- Post-its will be positioned here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mindmap View -->
+        <div id="mindmapView" class="hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Mindmap</h2>
+                    <div class="flex space-x-2">
+                        <select id="mindmapSelector" class="border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 text-sm">
+                            <option value="">Select Mindmap</option>
+                        </select>
+                        <button id="addMindmapBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                            + Add Mindmap
+                        </button>
+                        <button id="editMindmapBtn" class="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors" style="display: none;">
+                            Edit
+                        </button>
+                        <button id="deleteMindmapBtn" class="bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition-colors" style="display: none;">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Mindmap Controls -->
+                <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm text-gray-600 dark:text-gray-400">Zoom:</label>
+                            <input type="range" id="mindmapZoom" min="0.25" max="2" step="0.25" value="1" class="w-20">
+                            <span id="mindmapZoomLevel" class="text-sm text-gray-600 dark:text-gray-400">100%</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm text-gray-600 dark:text-gray-400">Layout:</label>
+                            <select id="mindmapLayout" class="text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-2 py-1">
+                                <option value="tree" selected>Tree</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mindmap Container -->
+                <div id="mindmapContainer" class="relative overflow-hidden bg-white dark:bg-gray-900" style="height: 600px;">
+                    <div id="mindmapViewport" class="absolute inset-0 cursor-grab">
+                        <div id="mindmapContent" class="relative w-full h-full">
+                            <div id="mindmapEmptyState" class="flex items-center justify-center h-full">
+                                <div class="text-center">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No mindmap data</h3>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Add a Mindmap section with ul>li lists to your markdown.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Timeline View -->
         <div id="timelineView" class="hidden">
 
@@ -612,6 +824,72 @@
                     </button>
                     <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
                         Save Goal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Mindmap Modal -->
+    <div id="mindmapModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="mindmapModalTitle" class="text-lg font-medium text-gray-900 dark:text-gray-100">Add Mindmap</h3>
+            </div>
+            <form id="mindmapForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                    <input type="text" id="mindmapTitle" required class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter mindmap title...">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Structure (as bullet points)</label>
+                    <textarea id="mindmapStructure" required rows="8" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="- Main Topic&#10;  - Subtopic 1&#10;  - Subtopic 2&#10;    - Detail 1&#10;    - Detail 2"></textarea>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Use bullet points (-) and indentation to create hierarchy</p>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancelMindmapBtn" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        Add Mindmap
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Post-it Modal -->
+    <div id="postItModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="postItModalTitle" class="text-lg font-medium text-gray-900 dark:text-gray-100">Add Post-it</h3>
+            </div>
+            <form id="postItForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Content</label>
+                    <textarea id="postItContent" required rows="4" class="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Enter post-it content..."></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
+                    <div class="flex space-x-2">
+                        <button type="button" class="color-option w-8 h-8 rounded border-2 border-gray-300" data-color="yellow" style="background-color: #fef3c7;"></button>
+                        <button type="button" class="color-option w-8 h-8 rounded border-2 border-gray-300" data-color="pink" style="background-color: #fce7f3;"></button>
+                        <button type="button" class="color-option w-8 h-8 rounded border-2 border-gray-300" data-color="blue" style="background-color: #dbeafe;"></button>
+                        <button type="button" class="color-option w-8 h-8 rounded border-2 border-gray-300" data-color="green" style="background-color: #d1fae5;"></button>
+                        <button type="button" class="color-option w-8 h-8 rounded border-2 border-gray-300" data-color="purple" style="background-color: #e9d5ff;"></button>
+                        <button type="button" class="color-option w-8 h-8 rounded border-2 border-gray-300" data-color="orange" style="background-color: #fed7aa;"></button>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancelPostItBtn" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                        Add Post-it
                     </button>
                 </div>
             </form>

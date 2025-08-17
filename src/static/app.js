@@ -17,6 +17,16 @@ class TaskManager {
         this.currentGoalFilter = 'all';
         this.noteEditMode = false;
         this.autoSaveTimeout = null;
+        this.postIts = [];
+        this.mindmaps = [];
+        this.selectedPostItColor = 'yellow';
+        this.canvasZoom = 1;
+        this.canvasOffset = { x: 0, y: 0 };
+        this.mindmapZoom = 1;
+        this.mindmapOffset = { x: 0, y: 0 };
+        this.selectedMindmap = null;
+        this.editingMindmap = null;
+        this.currentLayout = 'tree';
         this.init();
     }
 
@@ -39,6 +49,8 @@ class TaskManager {
         document.getElementById('notesViewBtn').addEventListener('click', () => this.switchView('notes'));
         document.getElementById('goalsViewBtn').addEventListener('click', () => this.switchView('goals'));
         document.getElementById('configViewBtn').addEventListener('click', () => this.switchView('config'));
+        document.getElementById('canvasViewBtn').addEventListener('click', () => this.switchView('canvas'));
+        document.getElementById('mindmapViewBtn').addEventListener('click', () => this.switchView('mindmap'));
         
         // Mobile menu toggle
         document.getElementById('mobileMenuToggle').addEventListener('click', () => this.toggleMobileMenu());
@@ -51,6 +63,8 @@ class TaskManager {
         document.getElementById('notesViewBtnMobile').addEventListener('click', () => { this.switchView('notes'); this.closeMobileMenu(); });
         document.getElementById('goalsViewBtnMobile').addEventListener('click', () => { this.switchView('goals'); this.closeMobileMenu(); });
         document.getElementById('configViewBtnMobile').addEventListener('click', () => { this.switchView('config'); this.closeMobileMenu(); });
+        document.getElementById('canvasViewBtnMobile').addEventListener('click', () => { this.switchView('canvas'); this.closeMobileMenu(); });
+        document.getElementById('mindmapViewBtnMobile').addEventListener('click', () => { this.switchView('mindmap'); this.closeMobileMenu(); });
         
         // Dark mode toggle
         document.getElementById('darkModeToggle').addEventListener('click', () => this.toggleDarkMode());
@@ -149,6 +163,31 @@ class TaskManager {
         document.getElementById('enterpriseGoalsFilter').addEventListener('click', () => this.filterGoals('enterprise'));
         document.getElementById('projectGoalsFilter').addEventListener('click', () => this.filterGoals('project'));
         
+        // Canvas events
+        document.getElementById('addPostItBtn').addEventListener('click', () => this.openPostItModal());
+        document.getElementById('cancelPostItBtn').addEventListener('click', () => this.closePostItModal());
+        document.getElementById('postItForm').addEventListener('submit', (e) => this.handlePostItSubmit(e));
+        document.getElementById('canvasZoom').addEventListener('input', (e) => this.updateCanvasZoom(e.target.value));
+        
+        // Mindmap events
+        document.getElementById('addMindmapBtn').addEventListener('click', () => this.openMindmapModal());
+        document.getElementById('cancelMindmapBtn').addEventListener('click', () => this.closeMindmapModal());
+        document.getElementById('mindmapForm').addEventListener('submit', (e) => this.handleMindmapSubmit(e));
+        document.getElementById('mindmapSelector').addEventListener('change', (e) => this.selectMindmap(e.target.value));
+        document.getElementById('editMindmapBtn').addEventListener('click', () => this.editSelectedMindmap());
+        document.getElementById('deleteMindmapBtn').addEventListener('click', () => this.deleteSelectedMindmap());
+        document.getElementById('mindmapZoom').addEventListener('input', (e) => this.updateMindmapZoom(e.target.value));
+        document.getElementById('mindmapLayout').addEventListener('change', (e) => this.updateMindmapLayout(e.target.value));
+        
+        // Color picker events for post-it modal
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('color-option')) {
+                document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+                e.target.classList.add('selected');
+                this.selectedPostItColor = e.target.dataset.color;
+            }
+        });
+        
         // Modal close on background click
         document.getElementById('noteModal').addEventListener('click', (e) => {
             if (e.target.id === 'noteModal') {
@@ -159,6 +198,18 @@ class TaskManager {
         document.getElementById('goalModal').addEventListener('click', (e) => {
             if (e.target.id === 'goalModal') {
                 this.closeGoalModal();
+            }
+        });
+        
+        document.getElementById('postItModal').addEventListener('click', (e) => {
+            if (e.target.id === 'postItModal') {
+                this.closePostItModal();
+            }
+        });
+        
+        document.getElementById('mindmapModal').addEventListener('click', (e) => {
+            if (e.target.id === 'mindmapModal') {
+                this.closeMindmapModal();
             }
         });
 
@@ -190,10 +241,12 @@ class TaskManager {
         const timelineBtn = document.getElementById('timelineViewBtn');
         const notesBtn = document.getElementById('notesViewBtn');
         const goalsBtn = document.getElementById('goalsViewBtn');
+        const canvasBtn = document.getElementById('canvasViewBtn');
+        const mindmapBtn = document.getElementById('mindmapViewBtn');
         const configBtn = document.getElementById('configViewBtn');
         
         // Reset all buttons
-        [summaryBtn, listBtn, boardBtn, timelineBtn, notesBtn, goalsBtn, configBtn].forEach(btn => {
+        [summaryBtn, listBtn, boardBtn, timelineBtn, notesBtn, goalsBtn, canvasBtn, mindmapBtn, configBtn].forEach(btn => {
             btn.classList.remove('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
             btn.classList.add('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
         });
@@ -205,6 +258,8 @@ class TaskManager {
         document.getElementById('timelineView').classList.add('hidden');
         document.getElementById('notesView').classList.add('hidden');
         document.getElementById('goalsView').classList.add('hidden');
+        document.getElementById('canvasView').classList.add('hidden');
+        document.getElementById('mindmapView').classList.add('hidden');
         document.getElementById('configView').classList.add('hidden');
         
         // Activate current view
@@ -236,6 +291,16 @@ class TaskManager {
             goalsBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
             document.getElementById('goalsView').classList.remove('hidden');
             this.loadGoals();
+        } else if (view === 'canvas') {
+            canvasBtn.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
+            canvasBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
+            document.getElementById('canvasView').classList.remove('hidden');
+            this.loadCanvas();
+        } else if (view === 'mindmap') {
+            mindmapBtn.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
+            mindmapBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
+            document.getElementById('mindmapView').classList.remove('hidden');
+            this.loadMindmaps();
         } else if (view === 'config') {
             configBtn.classList.add('bg-white', 'dark:bg-gray-600', 'text-gray-900', 'dark:text-gray-100', 'shadow-sm');
             configBtn.classList.remove('text-gray-600', 'dark:text-gray-300', 'hover:text-gray-900', 'dark:hover:text-gray-100');
@@ -2756,6 +2821,640 @@ class TaskManager {
             console.error('Error details:', error.message, error.stack);
             alert('Error opening file: ' + error.message);
         }
+    }
+
+    // Canvas functionality
+    async loadCanvas() {
+        try {
+            const response = await fetch('/api/canvas/postits');
+            this.postIts = await response.json();
+            this.renderCanvas();
+        } catch (error) {
+            console.error('Error loading canvas:', error);
+        }
+    }
+
+    renderCanvas() {
+        const canvasContent = document.getElementById('canvasContent');
+        canvasContent.innerHTML = '';
+        
+        this.postIts.forEach(postIt => {
+            const postItElement = this.createPostItElement(postIt);
+            canvasContent.appendChild(postItElement);
+        });
+    }
+
+    createPostItElement(postIt) {
+        const element = document.createElement('div');
+        element.className = `post-it ${postIt.color}`;
+        element.style.left = `${postIt.position.x}px`;
+        element.style.top = `${postIt.position.y}px`;
+        element.dataset.id = postIt.id;
+        
+        if (postIt.size) {
+            element.style.width = `${postIt.size.width}px`;
+            element.style.height = `${postIt.size.height}px`;
+        }
+        
+        element.setAttribute('data-postit-id', postIt.id);
+        element.innerHTML = `
+            <div class="post-it-controls">
+                <button onclick="taskManager.editPostIt('${postIt.id}')">✏️</button>
+                <button onclick="taskManager.deletePostIt('${postIt.id}')">🗑️</button>
+            </div>
+            <div contenteditable="true" onblur="taskManager.updatePostItContent('${postIt.id}', this.innerText)">${postIt.content}</div>
+        `;
+        
+        this.makePostItDraggable(element);
+        return element;
+    }
+
+    makePostItDraggable(element) {
+        let isDragging = false;
+        let startX, startY, startLeft, startTop;
+        
+        element.addEventListener('mousedown', (e) => {
+            if (e.target.contentEditable === 'true') return;
+            isDragging = true;
+            element.classList.add('dragging');
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = parseInt(element.style.left);
+            startTop = parseInt(element.style.top);
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const newLeft = startLeft + (e.clientX - startX);
+            const newTop = startTop + (e.clientY - startY);
+            element.style.left = `${newLeft}px`;
+            element.style.top = `${newTop}px`;
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                element.classList.remove('dragging');
+                this.updatePostItPosition(element.dataset.id, {
+                    x: parseInt(element.style.left),
+                    y: parseInt(element.style.top)
+                });
+            }
+        });
+    }
+
+    openPostItModal() {
+        document.getElementById('postItModal').classList.remove('hidden');
+        document.getElementById('postItModal').classList.add('flex');
+        document.getElementById('postItContent').value = '';
+        this.selectedPostItColor = 'yellow';
+        document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+        document.querySelector('[data-color="yellow"]').classList.add('selected');
+    }
+
+    closePostItModal() {
+        document.getElementById('postItModal').classList.add('hidden');
+        document.getElementById('postItModal').classList.remove('flex');
+    }
+
+    async handlePostItSubmit(e) {
+        e.preventDefault();
+        const content = document.getElementById('postItContent').value;
+        
+        console.log('Creating post-it with content:', content);
+        console.log('Selected color:', this.selectedPostItColor);
+        
+        if (!content.trim()) {
+            alert('Please enter some content for the post-it');
+            return;
+        }
+        
+        try {
+            const postData = {
+                content: content.trim(),
+                color: this.selectedPostItColor || 'yellow',
+                position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 }
+            };
+            
+            console.log('Sending POST request with data:', postData);
+            
+            const response = await fetch('/api/canvas/postits', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(postData)
+            });
+            
+            console.log('Response status:', response.status);
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('Post-it created successfully:', result);
+                this.closePostItModal();
+                this.loadCanvas();
+            } else {
+                const error = await response.text();
+                console.error('Failed to create post-it:', error);
+                alert('Failed to create post-it: ' + error);
+            }
+        } catch (error) {
+            console.error('Error creating post-it:', error);
+            alert('Error creating post-it: ' + error.message);
+        }
+    }
+
+    editPostIt(id) {
+        // Find the post-it element and focus on its content area
+        const element = document.querySelector(`[data-postit-id="${id}"] div[contenteditable]`);
+        if (element) {
+            element.focus();
+            // Select all text for easy editing
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    }
+
+    async updatePostItContent(id, content) {
+        try {
+            await fetch(`/api/canvas/postits/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+        } catch (error) {
+            console.error('Error updating post-it:', error);
+        }
+    }
+
+    async updatePostItPosition(id, position) {
+        try {
+            await fetch(`/api/canvas/postits/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ position })
+            });
+        } catch (error) {
+            console.error('Error updating post-it position:', error);
+        }
+    }
+
+    async deletePostIt(id) {
+        if (confirm('Delete this post-it?')) {
+            try {
+                await fetch(`/api/canvas/postits/${id}`, { method: 'DELETE' });
+                this.loadCanvas();
+            } catch (error) {
+                console.error('Error deleting post-it:', error);
+            }
+        }
+    }
+
+
+    updateCanvasZoom(value) {
+        this.canvasZoom = parseFloat(value);
+        const viewport = document.getElementById('canvasViewport');
+        viewport.style.transform = `translate(${this.canvasOffset.x}px, ${this.canvasOffset.y}px) scale(${this.canvasZoom})`;
+        document.getElementById('zoomLevel').textContent = `${Math.round(this.canvasZoom * 100)}%`;
+    }
+
+
+
+    // Mindmap functionality
+    async loadMindmaps(autoSelect = true) {
+        try {
+            const response = await fetch('/api/mindmaps');
+            this.mindmaps = await response.json();
+            this.renderMindmapSelector();
+            if (this.mindmaps.length > 0 && autoSelect) {
+                this.selectMindmap(this.mindmaps[0].id);
+            } else if (this.mindmaps.length === 0) {
+                // No mindmaps available, clear everything
+                this.selectedMindmap = null;
+                const content = document.getElementById('mindmapContent');
+                const emptyState = document.getElementById('mindmapEmptyState');
+                const editBtn = document.getElementById('editMindmapBtn');
+                const deleteBtn = document.getElementById('deleteMindmapBtn');
+                
+                if (content) content.innerHTML = '';
+                if (emptyState) emptyState.style.display = 'flex';
+                if (editBtn) editBtn.style.display = 'none';
+                if (deleteBtn) deleteBtn.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error loading mindmaps:', error);
+        }
+    }
+
+    renderMindmapSelector() {
+        const selector = document.getElementById('mindmapSelector');
+        selector.innerHTML = '<option value="">Select Mindmap</option>';
+        
+        this.mindmaps.forEach(mindmap => {
+            const option = document.createElement('option');
+            option.value = mindmap.id;
+            option.textContent = mindmap.title;
+            selector.appendChild(option);
+        });
+    }
+
+    selectMindmap(mindmapId) {
+        // Update the selector value first
+        const selector = document.getElementById('mindmapSelector');
+        if (selector) {
+            selector.value = mindmapId;
+        }
+        
+        if (!mindmapId || mindmapId === "") {
+            // No mindmap selected - clear everything
+            this.selectedMindmap = null;
+            const content = document.getElementById('mindmapContent');
+            const emptyState = document.getElementById('mindmapEmptyState');
+            const editBtn = document.getElementById('editMindmapBtn');
+            const deleteBtn = document.getElementById('deleteMindmapBtn');
+            
+            if (content) content.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'flex';
+            if (editBtn) editBtn.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'none';
+            return;
+        }
+        
+        this.selectedMindmap = this.mindmaps.find(m => m.id === mindmapId);
+        
+        if (this.selectedMindmap) {
+            console.log('Selected mindmap:', this.selectedMindmap.title); // Debug
+            this.renderMindmap();
+            // Show edit and delete buttons
+            const editBtn = document.getElementById('editMindmapBtn');
+            const deleteBtn = document.getElementById('deleteMindmapBtn');
+            if (editBtn && deleteBtn) {
+                editBtn.style.display = 'block';
+                deleteBtn.style.display = 'block';
+                console.log('Buttons shown'); // Debug
+            } else {
+                console.log('Buttons not found!'); // Debug
+            }
+        } else {
+            console.log('No mindmap found for ID:', mindmapId); // Debug
+            // Mindmap not found
+            const content = document.getElementById('mindmapContent');
+            const emptyState = document.getElementById('mindmapEmptyState');
+            const editBtn = document.getElementById('editMindmapBtn');
+            const deleteBtn = document.getElementById('deleteMindmapBtn');
+            
+            if (content) content.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'flex';
+            if (editBtn) editBtn.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'none';
+        }
+    }
+
+    renderMindmap() {
+        const content = document.getElementById('mindmapContent');
+        const emptyState = document.getElementById('mindmapEmptyState');
+        
+        if (!content) {
+            console.error('mindmapContent element not found');
+            return;
+        }
+        
+        if (!this.selectedMindmap || this.selectedMindmap.nodes.length === 0) {
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+            }
+            return;
+        }
+        
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        content.innerHTML = '';
+        
+        // Make the mindmap draggable
+        this.setupMindmapPanning();
+        
+        // Find root nodes (level 0)
+        const rootNodes = this.selectedMindmap.nodes.filter(node => node.level === 0);
+        
+        if (rootNodes.length === 0) {
+            emptyState.style.display = 'flex';
+            return;
+        }
+        
+        // Use tree layout
+        this.renderTreeLayout(rootNodes, content);
+        
+        // Draw connections between nodes
+        this.drawConnections(content);
+    }
+
+    renderTreeLayout(rootNodes, content) {
+        const startX = 400;
+        const startY = 200;
+        const levelSpacing = 200;
+        const nodeSpacing = 100;
+        
+        // Position each root node and its children
+        rootNodes.forEach((rootNode, rootIndex) => {
+            const rootY = startY + (rootIndex * 300);
+            this.positionNodeAndChildren(rootNode, startX, rootY, levelSpacing, nodeSpacing, content);
+        });
+    }
+
+
+    createNodeElement(node, x, y, container) {
+        const element = document.createElement('div');
+        element.className = `mindmap-node level-${node.level}`;
+        element.textContent = node.text;
+        element.dataset.nodeId = node.id;
+        
+        if (node.level === 0) {
+            element.classList.add('root');
+        }
+        
+        element.style.left = `${x}px`;
+        element.style.top = `${y}px`;
+        container.appendChild(element);
+    }
+    
+    positionNodeAndChildren(node, x, y, levelSpacing, nodeSpacing, container) {
+        // Create and position the node element
+        const element = document.createElement('div');
+        element.className = `mindmap-node level-${node.level}`;
+        element.textContent = node.text;
+        element.dataset.nodeId = node.id;
+        
+        if (node.level === 0) {
+            element.classList.add('root');
+        }
+        
+        element.style.left = `${x}px`;
+        element.style.top = `${y}px`;
+        container.appendChild(element);
+        
+        // Store position for drawing connections
+        node.x = x;
+        node.y = y;
+        
+        // Position children
+        const children = this.selectedMindmap.nodes.filter(n => n.parent === node.id);
+        if (children.length > 0) {
+            const childStartY = y - ((children.length - 1) * nodeSpacing) / 2;
+            
+            children.forEach((child, index) => {
+                const childX = x + levelSpacing;
+                const childY = childStartY + (index * nodeSpacing);
+                this.positionNodeAndChildren(child, childX, childY, levelSpacing, nodeSpacing, container);
+            });
+        }
+    }
+    
+    drawConnections(container) {
+        // Draw lines between connected nodes
+        this.selectedMindmap.nodes.forEach(node => {
+            if (node.parent) {
+                const parent = this.selectedMindmap.nodes.find(n => n.id === node.parent);
+                if (parent && parent.x !== undefined && node.x !== undefined) {
+                    const line = document.createElement('div');
+                    line.className = 'mindmap-connection';
+                    
+                    const x1 = parent.x + 80; // Offset for node width
+                    const y1 = parent.y + 20; // Offset for node height center
+                    const x2 = node.x;
+                    const y2 = node.y + 20;
+                    
+                    const length = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                    
+                    line.style.width = `${length}px`;
+                    line.style.height = '2px';
+                    line.style.left = `${x1}px`;
+                    line.style.top = `${y1}px`;
+                    line.style.transform = `rotate(${angle}deg)`;
+                    line.style.transformOrigin = '0 50%';
+                    line.style.backgroundColor = '#6b7280';
+                    line.style.zIndex = '1';
+                    
+                    container.appendChild(line);
+                }
+            }
+        });
+    }
+    
+    setupMindmapPanning() {
+        const viewport = document.getElementById('mindmapViewport');
+        let isDragging = false;
+        let startX, startY, startTranslateX = 0, startTranslateY = 0;
+        
+        viewport.addEventListener('mousedown', (e) => {
+            if (e.target === viewport || e.target.id === 'mindmapContent') {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                viewport.style.cursor = 'grabbing';
+            }
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                const newTranslateX = startTranslateX + deltaX;
+                const newTranslateY = startTranslateY + deltaY;
+                
+                viewport.style.transform = `translate(${newTranslateX}px, ${newTranslateY}px) scale(${this.mindmapZoom})`;
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                viewport.style.cursor = 'grab';
+                const transform = viewport.style.transform;
+                const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+                if (match) {
+                    startTranslateX = parseFloat(match[1]);
+                    startTranslateY = parseFloat(match[2]);
+                }
+            }
+        });
+    }
+
+    editSelectedMindmap() {
+        if (!this.selectedMindmap) return;
+        
+        // Pre-fill the modal with existing data
+        document.getElementById('mindmapModalTitle').textContent = 'Edit Mindmap';
+        document.getElementById('mindmapTitle').value = this.selectedMindmap.title;
+        
+        // Convert nodes back to bullet-point structure
+        const structure = this.convertNodesToStructure(this.selectedMindmap.nodes);
+        document.getElementById('mindmapStructure').value = structure;
+        
+        // Mark as editing
+        this.editingMindmap = this.selectedMindmap;
+        
+        // Open modal
+        this.openMindmapModal();
+    }
+    
+    async deleteSelectedMindmap() {
+        if (!this.selectedMindmap) return;
+        
+        if (confirm(`Delete mindmap "${this.selectedMindmap.title}"?`)) {
+            try {
+                await fetch(`/api/mindmaps/${this.selectedMindmap.id}`, { method: 'DELETE' });
+                this.selectedMindmap = null;
+                this.loadMindmaps(false); // Don't auto-select after deletion
+                document.getElementById('mindmapSelector').value = '';
+                document.getElementById('editMindmapBtn').style.display = 'none';
+                document.getElementById('deleteMindmapBtn').style.display = 'none';
+            } catch (error) {
+                console.error('Error deleting mindmap:', error);
+            }
+        }
+    }
+    
+    convertNodesToStructure(nodes) {
+        // Convert nodes back to indented bullet points
+        const rootNodes = nodes.filter(node => node.level === 0);
+        let structure = '';
+        
+        rootNodes.forEach(rootNode => {
+            structure += this.nodeToString(rootNode, nodes, 0);
+        });
+        
+        return structure.trim();
+    }
+    
+    nodeToString(node, allNodes, level) {
+        const indent = '  '.repeat(level);
+        let result = `${indent}- ${node.text}\n`;
+        
+        // Add children
+        const children = allNodes.filter(n => n.parent === node.id);
+        children.forEach(child => {
+            result += this.nodeToString(child, allNodes, level + 1);
+        });
+        
+        return result;
+    }
+
+    updateMindmapZoom(value) {
+        this.mindmapZoom = parseFloat(value);
+        const viewport = document.getElementById('mindmapViewport');
+        viewport.style.transform = `translate(${this.mindmapOffset.x}px, ${this.mindmapOffset.y}px) scale(${this.mindmapZoom})`;
+        document.getElementById('mindmapZoomLevel').textContent = `${Math.round(this.mindmapZoom * 100)}%`;
+    }
+
+    updateMindmapLayout(layout) {
+        this.currentLayout = layout;
+        console.log('Layout changed to:', layout); // Debug
+        if (this.selectedMindmap) {
+            this.renderMindmap();
+        }
+    }
+
+    openMindmapModal() {
+        document.getElementById('mindmapModal').classList.remove('hidden');
+        document.getElementById('mindmapModal').classList.add('flex');
+        
+        if (!this.editingMindmap) {
+            document.getElementById('mindmapModalTitle').textContent = 'Add Mindmap';
+            document.getElementById('mindmapTitle').value = '';
+            document.getElementById('mindmapStructure').value = '';
+        }
+    }
+
+    closeMindmapModal() {
+        document.getElementById('mindmapModal').classList.add('hidden');
+        document.getElementById('mindmapModal').classList.remove('flex');
+        this.editingMindmap = null;
+        document.getElementById('mindmapModalTitle').textContent = 'Add Mindmap';
+    }
+
+    async handleMindmapSubmit(e) {
+        e.preventDefault();
+        const title = document.getElementById('mindmapTitle').value;
+        const structure = document.getElementById('mindmapStructure').value;
+        
+        // Parse the structure into nodes
+        const nodes = this.parseMindmapStructure(structure);
+        
+        try {
+            let response;
+            if (this.editingMindmap) {
+                // Update existing mindmap
+                response = await fetch(`/api/mindmaps/${this.editingMindmap.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, nodes })
+                });
+            } else {
+                // Create new mindmap
+                response = await fetch('/api/mindmaps', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, nodes })
+                });
+            }
+            
+            if (response.ok) {
+                this.closeMindmapModal();
+                this.loadMindmaps();
+                
+                // If we were editing, reselect the mindmap
+                if (this.editingMindmap) {
+                    setTimeout(() => {
+                        document.getElementById('mindmapSelector').value = this.editingMindmap.id;
+                        this.selectMindmap(this.editingMindmap.id);
+                    }, 100);
+                }
+            }
+        } catch (error) {
+            console.error('Error saving mindmap:', error);
+        }
+    }
+
+    parseMindmapStructure(structure) {
+        const lines = structure.split('\n').filter(line => line.trim());
+        const nodes = [];
+        
+        lines.forEach((line, index) => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('- ')) {
+                const level = (line.length - line.trimStart().length) / 2;
+                const text = trimmed.substring(2);
+                
+                const node = {
+                    id: `node_${index + 1}`,
+                    text,
+                    level,
+                    children: []
+                };
+                
+                // Find parent based on level
+                if (level > 0) {
+                    for (let i = nodes.length - 1; i >= 0; i--) {
+                        if (nodes[i].level === level - 1) {
+                            node.parent = nodes[i].id;
+                            nodes[i].children.push(node);
+                            break;
+                        }
+                    }
+                }
+                
+                nodes.push(node);
+            }
+        });
+        
+        return nodes;
+    }
+
+    exportMindmapCSV() {
+        window.open('/api/export/csv/mindmaps', '_blank');
     }
 }
 
