@@ -180,6 +180,180 @@
             border: 2px solid #6b7280;
             border-radius: 2px;
         }
+        
+        /* Enhanced Notes Editor Styles */
+        .paragraph-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            background: white;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .dark .paragraph-section {
+            border-color: #374151;
+            background: #1f2937;
+        }
+        
+        .paragraph-section:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        }
+        
+        .paragraph-section.selected {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        
+        .dark .paragraph-section.selected {
+            background-color: #1e3a8a;
+        }
+        
+        .paragraph-section.dragging {
+            opacity: 0.6;
+            transform: rotate(2deg);
+        }
+        
+        .paragraph-controls {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: none;
+            gap: 4px;
+        }
+        
+        .paragraph-section:hover .paragraph-controls {
+            display: flex;
+        }
+        
+        .paragraph-handle {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: grab;
+            color: #9ca3af;
+            display: none;
+        }
+        
+        .paragraph-section:hover .paragraph-handle {
+            display: block;
+        }
+        
+        .paragraph-handle:active {
+            cursor: grabbing;
+        }
+        
+        .code-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        
+        .dark .code-block {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        
+        .language-selector {
+            position: absolute;
+            top: 8px;
+            right: 80px;
+            font-size: 12px;
+        }
+        
+        .custom-section {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        
+        .dark .custom-section {
+            border-color: #4b5563;
+            background: #111827;
+        }
+        
+        .drop-zone-active {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+        }
+        
+        .dark .drop-zone-active {
+            background-color: #1e3a8a !important;
+        }
+        
+        .timeline-item {
+            border-left: 4px solid #e5e7eb;
+            padding-left: 16px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+        
+        .timeline-item.success {
+            border-left-color: #10b981;
+        }
+        
+        .timeline-item.failed {
+            border-left-color: #ef4444;
+        }
+        
+        .timeline-item.pending {
+            border-left-color: #f59e0b;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 8px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .split-view-column {
+            flex: 1;
+            min-height: 200px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 0 8px;
+        }
+        
+        .dark .split-view-column {
+            border-color: #374151;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .auto-save-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .auto-save-indicator.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors">
@@ -570,9 +744,14 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Notes</h2>
-                    <button id="addNoteBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
-                        + Add Note
-                    </button>
+                    <div class="flex space-x-2">
+                        <button id="openMarkdownBtn" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                            Open MD
+                        </button>
+                        <button id="addNoteBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors">
+                            + Add Note
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Notes Tab Navigation -->
@@ -596,6 +775,9 @@
                             <div class="flex justify-between items-start mb-4">
                                 <input id="activeNoteTitle" class="text-xl font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none flex-1" placeholder="Note title..." readonly>
                                 <div class="flex space-x-2 ml-4">
+                                    <button id="toggleModeBtn" class="px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors" title="Toggle Enhanced Mode">
+                                        <span id="toggleModeText">Enhanced</span>
+                                    </button>
                                     <button id="toggleEditBtn" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title="Toggle Edit Mode">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -613,6 +795,46 @@
                                     </button>
                                 </div>
                             </div>
+                            
+                            <!-- Enhanced Editor Mode -->
+                            <div id="enhancedNoteEditor" class="hidden">
+                                <div class="flex justify-between items-center mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div class="flex space-x-2">
+                                        <button id="addParagraphBtn" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                                            + Paragraph
+                                        </button>
+                                        <button id="addCodeBlockBtn" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">
+                                            + Code
+                                        </button>
+                                        <button id="addCustomSectionBtn" class="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700">
+                                            + Custom
+                                        </button>
+                                        <button id="enableMultiSelectBtn" class="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700">
+                                            Multi-Select
+                                        </button>
+                                    </div>
+                                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                                        Enhanced Mode
+                                    </div>
+                                </div>
+                                
+                                <!-- Drag and Drop Zone -->
+                                <div id="fileDropZone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center mb-4 hidden">
+                                    <p class="text-gray-500 dark:text-gray-400">Drop files here to add them to your note</p>
+                                </div>
+                                
+                                <!-- Paragraphs Container -->
+                                <div id="paragraphsContainer" class="space-y-4">
+                                    <!-- Paragraphs will be rendered here -->
+                                </div>
+                                
+                                <!-- Custom Sections Container -->
+                                <div id="customSectionsContainer" class="mt-6 space-y-6">
+                                    <!-- Custom sections will be rendered here -->
+                                </div>
+                            </div>
+                            
+                            <!-- Simple Editor Mode (existing) -->
                             <div id="activeNoteBodyContainer" class="relative">
                                 <div id="activeNoteBody" class="max-w-none">
                                     <!-- Note content will be rendered here -->
@@ -805,6 +1027,42 @@
 
     <!-- Hidden File Input for CSV Import -->
     <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+    
+    <!-- Hidden File Input for Markdown Import -->
+    <input type="file" id="markdownFileInput" accept=".md,.markdown" style="display: none;">
+    
+    <!-- Auto-save Indicator -->
+    <div id="autoSaveIndicator" class="auto-save-indicator">
+        Auto-saved
+    </div>
+
+    <!-- Custom Section Modal -->
+    <div id="customSectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Add Custom Section</h3>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Section Type</label>
+                    <select id="customSectionType" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        <option value="tabs">Tabs - Organize content in tabs</option>
+                        <option value="timeline">Timeline - Track progress with status</option>
+                        <option value="split-view">Split View - Multi-column layout</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Section Title</label>
+                    <input type="text" id="customSectionTitle" placeholder="Enter section title..." 
+                           class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 flex justify-end space-x-3">
+                <button id="cancelCustomSectionBtn" class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">Cancel</button>
+                <button id="createCustomSectionBtn" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">Create Section</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Note Modal -->
     <div id="noteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">

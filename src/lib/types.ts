@@ -19,12 +19,40 @@ export interface Task {
   parentId?: string;
 }
 
+export interface NoteParagraph {
+  id: string;
+  type: "text" | "code";
+  content: string;
+  language?: string; // For code blocks
+  order: number;
+  metadata?: {
+    collapsed?: boolean;
+    readonly?: boolean;
+    tags?: string[];
+  };
+}
+
+export interface CustomSection {
+  id: string;
+  type: "tabs" | "timeline" | "split-view";
+  title: string;
+  order: number;
+  config: {
+    tabs?: { id: string; title: string; content: NoteParagraph[] }[];
+    timeline?: { id: string; title: string; status: "success" | "failed" | "pending"; date?: string; content: NoteParagraph[] }[];
+    splitView?: { columns: NoteParagraph[][] };
+  };
+}
+
 export interface Note {
   id: string;
   title: string;
-  content: string;
+  content: string; // Keep for backward compatibility
+  paragraphs?: NoteParagraph[];
+  customSections?: CustomSection[];
   createdAt: string;
   updatedAt: string;
+  mode?: "simple" | "enhanced"; // Simple uses content, enhanced uses paragraphs
 }
 
 export interface Goal {

@@ -17,9 +17,14 @@ class TaskManager {
     this.currentGoalFilter = "all";
     this.noteEditMode = false;
     this.autoSaveTimeout = null;
+    this.enhancedMode = false;
+    this.previewMode = true;
+    this.multiSelectMode = false;
+    this.selectedParagraphs = [];
     this.stickyNotes = [];
     this.mindmaps = [];
     this.selectedStickyNoteColor = "yellow";
+    this.activeTabState = {}; // Track active tabs for each section
     this.canvasZoom = 1;
     this.canvasOffset = { x: 0, y: 0 };
     this.mindmapZoom = 1;
@@ -298,6 +303,39 @@ class TaskManager {
     document
       .getElementById("deleteNoteBtn")
       .addEventListener("click", () => this.deleteCurrentNote());
+    
+    // Enhanced Notes Events
+    document
+      .getElementById("toggleModeBtn")
+      .addEventListener("click", () => this.toggleEnhancedMode());
+    document
+      .getElementById("openMarkdownBtn")
+      .addEventListener("click", () => this.openMarkdownFile());
+    document
+      .getElementById("addParagraphBtn")
+      .addEventListener("click", () => this.addParagraph("text"));
+    document
+      .getElementById("addCodeBlockBtn")
+      .addEventListener("click", () => this.addParagraph("code"));
+    document
+      .getElementById("addCustomSectionBtn")
+      .addEventListener("click", () => this.addCustomSection());
+    document
+      .getElementById("enableMultiSelectBtn")
+      .addEventListener("click", () => this.toggleMultiSelect());
+    
+    // File input event
+    document
+      .getElementById("markdownFileInput")
+      .addEventListener("change", (e) => this.handleMarkdownFileSelect(e));
+    
+    // Custom section modal events
+    document
+      .getElementById("cancelCustomSectionBtn")
+      .addEventListener("click", () => this.closeCustomSectionModal());
+    document
+      .getElementById("createCustomSectionBtn")
+      .addEventListener("click", () => this.createCustomSection());
 
     // Auto-save events for note editing
     document
@@ -356,6 +394,9 @@ class TaskManager {
     document
       .getElementById("mindmapSelector")
       .addEventListener("change", (e) => this.selectMindmap(e.target.value));
+    document
+      .getElementById("mindmapStructure")
+      .addEventListener("keydown", (e) => this.handleMindmapKeyDown(e));
     document
       .getElementById("editMindmapBtn")
       .addEventListener("click", () => this.editSelectedMindmap());
@@ -2929,17 +2970,165 @@ class TaskManager {
 
     activeContent.classList.remove("hidden");
     document.getElementById("activeNoteTitle").value = activeNote.title;
-    document.getElementById("activeNoteEditor").value = activeNote.content;
 
-    this.updateNoteDisplay();
+    // Check if we should use enhanced mode
+    const isEnhanced = this.enhancedMode && activeNote.mode === 'enhanced';
+    
+    // Show/hide appropriate editors
+    const enhancedEditor = document.getElementById('enhancedNoteEditor');
+    const simpleEditor = document.getElementById('activeNoteBodyContainer');
+    
+    if (isEnhanced) {
+      enhancedEditor.classList.remove('hidden');
+      simpleEditor.classList.add('hidden');
+      this.renderParagraphs();
+      this.renderCustomSections();
+    } else {
+      enhancedEditor.classList.add('hidden');
+      simpleEditor.classList.remove('hidden');
+      document.getElementById("activeNoteEditor").value = activeNote.content;
+      this.updateNoteDisplay();
+    }
+  }
+
+  renderParagraphs() {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const container = document.getElementById('paragraphsContainer');
+    container.innerHTML = '';
+
+    const sortedParagraphs = [...currentNote.paragraphs].sort((a, b) => a.order - b.order);
+
+    sortedParagraphs.forEach(paragraph => {
+      const paragraphElement = this.createParagraphElement(paragraph);
+      container.appendChild(paragraphElement);
+    });
+
+    this.initDragAndDrop();
+  }
+
+  createParagraphElement(paragraph) {
+    const div = document.createElement('div');
+    div.className = `paragraph-section ${this.selectedParagraphs.includes(paragraph.id) ? 'selected' : ''}`;
+    div.setAttribute('data-paragraph-id', paragraph.id);
+    
+    const isEditing = !this.previewMode;
+    const isCodeBlock = paragraph.type === 'code';
+
+    div.innerHTML = `
+      <div class="paragraph-handle" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); cursor: grab; color: #9ca3af; font-size: 14px; padding: 4px; background: #f9fafb; border-radius: 3px;" draggable="true" onmousedown="this.parentElement.draggable=true" onmouseup="this.parentElement.draggable=false">
+        ⋮⋮
+      </div>
+      <div class="paragraph-controls flex flex-wrap items-center gap-2 mb-2">
+        ${isCodeBlock ? `
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-600 dark:text-gray-400">Language:</span>
+            <select class="language-selector text-xs border rounded px-2 py-1 min-w-24" 
+                    onchange="taskManager.updateParagraphLanguage('${paragraph.id}', this.value)"
+                    onmousedown="event.stopPropagation()" 
+                    onclick="event.stopPropagation()">
+              <option value="javascript" ${paragraph.language === 'javascript' ? 'selected' : ''}>JavaScript</option>
+              <option value="python" ${paragraph.language === 'python' ? 'selected' : ''}>Python</option>
+              <option value="typescript" ${paragraph.language === 'typescript' ? 'selected' : ''}>TypeScript</option>
+              <option value="html" ${paragraph.language === 'html' ? 'selected' : ''}>HTML</option>
+              <option value="css" ${paragraph.language === 'css' ? 'selected' : ''}>CSS</option>
+              <option value="sql" ${paragraph.language === 'sql' ? 'selected' : ''}>SQL</option>
+              <option value="bash" ${paragraph.language === 'bash' ? 'selected' : ''}>Bash</option>
+              <option value="json" ${paragraph.language === 'json' ? 'selected' : ''}>JSON</option>
+              <option value="markdown" ${paragraph.language === 'markdown' ? 'selected' : ''}>Markdown</option>
+              <option value="text" ${paragraph.language === 'text' ? 'selected' : ''}>Plain Text</option>
+            </select>
+          </div>
+        ` : ''}
+        <div class="flex gap-2">
+          <button onclick="taskManager.duplicateParagraph('${paragraph.id}')" 
+                  class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" title="Duplicate">Copy</button>
+          <button onclick="taskManager.toggleParagraphType('${paragraph.id}')" 
+                  class="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600" title="Toggle Type">${isCodeBlock ? 'Text' : 'Code'}</button>
+          <button onclick="taskManager.deleteParagraph('${paragraph.id}')" 
+                  class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600" title="Delete">Delete</button>
+        </div>
+      </div>
+      <div class="paragraph-content mt-2" style="margin-left: 40px;">
+        ${this.renderParagraphContent(paragraph, isEditing)}
+      </div>
+    `;
+
+    // Add click handler for multi-select
+    if (this.multiSelectMode) {
+      div.addEventListener('click', (e) => {
+        // Only if clicking outside the content area
+        if (!e.target.closest('.paragraph-content')) {
+          e.preventDefault();
+          this.toggleParagraphSelection(paragraph.id);
+        }
+      });
+    }
+
+    // Add drag event listeners only to the drag handle
+    const dragHandle = div.querySelector('.paragraph-handle');
+    
+    dragHandle.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', paragraph.id);
+      div.classList.add('dragging');
+      console.log('Drag started:', paragraph.id);
+    });
+
+    dragHandle.addEventListener('dragend', (e) => {
+      div.classList.remove('dragging');
+      div.draggable = false;
+      console.log('Drag ended');
+    });
+
+    // Only make draggable when drag handle is clicked
+    dragHandle.addEventListener('mousedown', () => {
+      div.draggable = true;
+    });
+    
+    dragHandle.addEventListener('mouseup', () => {
+      div.draggable = false;
+    });
+
+    return div;
+  }
+
+  renderParagraphContent(paragraph, isEditing) {
+    const isCodeBlock = paragraph.type === 'code';
+    
+    // Always in editing mode for enhanced editor
+    const elementType = isCodeBlock ? 'textarea' : 'div';
+    const attrs = isCodeBlock 
+      ? `rows="10" class="w-full p-3 code-block border-0 resize-none focus:outline-none"` 
+      : `contenteditable="true" class="w-full p-3 border-0 focus:outline-none min-h-[100px]"`;
+    
+    return `<${elementType} ${attrs} 
+              onblur="taskManager.handleParagraphBlur(event, '${paragraph.id}', this.${isCodeBlock ? 'value' : 'innerText'})"
+              onkeydown="taskManager.handleParagraphKeyDown(event, '${paragraph.id}')">${paragraph.content}</${elementType}>`;
   }
 
   updateNoteDisplay() {
     const activeNote = this.notes[this.activeNote];
     if (!activeNote) return;
 
-    // Convert markdown-like content to HTML with proper styling
-    let htmlContent = this.markdownToHtml(activeNote.content);
+    // Parse content to extract custom sections if they exist
+    const parsed = this.parseContentAndCustomSections(activeNote.content);
+    
+    let htmlContent = '';
+    
+    // Only render paragraph content (not custom section content which is already in paragraphs)
+    if (parsed.paragraphs && parsed.paragraphs.length > 0) {
+      htmlContent = this.markdownToHtml(parsed.paragraphs.map(p => 
+        p.type === 'code' ? `\`\`\`${p.language || 'text'}\n${p.content}\n\`\`\`` : p.content
+      ).join('\n\n'));
+    }
+
+    // Add custom sections as interactive preview components from metadata (not from content)
+    if (parsed.customSections && parsed.customSections.length > 0) {
+      parsed.customSections.forEach(section => {
+        htmlContent += this.renderCustomSectionPreview(section);
+      });
+    }
 
     // If content is empty or just whitespace, add a fallback
     if (!htmlContent.trim()) {
@@ -2948,6 +3137,117 @@ class TaskManager {
     }
 
     document.getElementById("activeNoteBody").innerHTML = htmlContent;
+  }
+
+  renderCustomSectionPreview(section) {
+    let sectionHtml = `<div class="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg p-4" data-section-preview-id="${section.id}">
+      <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">${section.title}</h2>`;
+    
+    if (section.type === 'tabs') {
+      const tabs = section.config.tabs || [];
+      if (tabs.length > 0) {
+        // Tab navigation
+        sectionHtml += '<div class="border-b border-gray-200 dark:border-gray-700 mb-4"><nav class="flex space-x-8">';
+        tabs.forEach((tab, index) => {
+          const isActive = index === 0;
+          sectionHtml += `
+            <button class="py-2 px-1 border-b-2 font-medium text-sm ${
+              isActive 
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                : 'border-transparent text-gray-500'
+            }" onclick="taskManager.switchPreviewTab('${section.id}', '${tab.id}')">
+              ${tab.title}
+            </button>`;
+        });
+        sectionHtml += '</nav></div>';
+        
+        // Tab content
+        tabs.forEach((tab, index) => {
+          const isActive = index === 0;
+          sectionHtml += `<div class="tab-preview-content ${isActive ? '' : 'hidden'}" data-preview-tab-id="${tab.id}">`;
+          tab.content.forEach(item => {
+            if (item.type === 'code') {
+              sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm">${this.escapeHtml(item.content)}</code></pre>`;
+            } else {
+              sectionHtml += `<div class="mb-2">${this.markdownToHtml(item.content)}</div>`;
+            }
+          });
+          sectionHtml += '</div>';
+        });
+      }
+    } else if (section.type === 'timeline') {
+      section.config.timeline?.forEach(item => {
+        const statusClass = item.status === 'success' ? 'text-green-600 dark:text-green-400' 
+          : item.status === 'failed' ? 'text-red-600 dark:text-red-400' 
+          : 'text-yellow-600 dark:text-yellow-400';
+        sectionHtml += `
+          <div class="mb-4 p-3 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
+            <h3 class="font-semibold ${statusClass}">${item.title} (${item.status})</h3>
+            ${item.date ? `<p class="text-sm text-gray-600 dark:text-gray-400">Date: ${item.date}</p>` : ''}
+            <div class="mt-2">`;
+        item.content?.forEach(contentItem => {
+          if (contentItem.type === 'code') {
+            sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm">${this.escapeHtml(contentItem.content)}</code></pre>`;
+          } else {
+            sectionHtml += `<div class="mb-2">${this.markdownToHtml(contentItem.content)}</div>`;
+          }
+        });
+        sectionHtml += '</div></div>';
+      });
+    } else if (section.type === 'split-view') {
+      sectionHtml += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+      section.config.splitView?.columns?.forEach((column, index) => {
+        sectionHtml += `<div class="border border-gray-200 dark:border-gray-700 rounded p-3">
+          <h4 class="font-medium mb-2">Column ${index + 1}</h4>`;
+        column.forEach(item => {
+          if (item.type === 'code') {
+            sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm">${this.escapeHtml(item.content)}</code></pre>`;
+          } else {
+            sectionHtml += `<div class="mb-2">${this.markdownToHtml(item.content)}</div>`;
+          }
+        });
+        sectionHtml += '</div>';
+      });
+      sectionHtml += '</div>';
+    }
+    
+    sectionHtml += '</div>';
+    return sectionHtml;
+  }
+
+  switchPreviewTab(sectionId, tabId) {
+    // Find the section container
+    const sectionElement = document.querySelector(`[data-section-preview-id="${sectionId}"]`);
+    if (!sectionElement) return;
+    
+    // Hide all tab contents in this section only
+    sectionElement.querySelectorAll('[data-preview-tab-id]').forEach(content => {
+      content.classList.add('hidden');
+    });
+    
+    // Show the selected tab content
+    const activeContent = sectionElement.querySelector(`[data-preview-tab-id="${tabId}"]`);
+    if (activeContent) {
+      activeContent.classList.remove('hidden');
+    }
+    
+    // Update tab button states in this section only
+    sectionElement.querySelectorAll('button[onclick*="switchPreviewTab"]').forEach(btn => {
+      btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+      btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    const activeBtn = sectionElement.querySelector(`[onclick*="${tabId}"]`);
+    if (activeBtn) {
+      activeBtn.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+      activeBtn.classList.remove('border-transparent', 'text-gray-500');
+    }
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   toggleNoteEditMode() {
@@ -2996,13 +3296,20 @@ class TaskManager {
   async autoSaveNote() {
     if (this.activeNote === null) return;
 
-    const title = document.getElementById("activeNoteTitle").value;
-    const content = document.getElementById("activeNoteEditor").value;
     const activeNote = this.notes[this.activeNote];
-
-    // Only save if content has changed
-    if (title === activeNote.title && content === activeNote.content) {
-      return;
+    const title = document.getElementById("activeNoteTitle").value;
+    
+    // For enhanced mode, get content from the synced content field
+    let content = activeNote.content;
+    
+    // For simple mode, get content from the editor
+    if (!this.enhancedMode || activeNote.mode !== 'enhanced') {
+      const editorElement = document.getElementById("activeNoteEditor");
+      if (editorElement) {
+        content = editorElement.value;
+        // Update the local content immediately for simple mode
+        activeNote.content = content;
+      }
     }
 
     try {
@@ -3010,23 +3317,28 @@ class TaskManager {
       const indicator = document.getElementById("saveIndicator");
       indicator.classList.remove("hidden");
 
-      await fetch(`/api/notes/${activeNote.id}`, {
+      // Prepare the data to save - include all enhanced mode data
+      const saveData = {
+        title: title,
+        content: content,
+        mode: activeNote.mode,
+        paragraphs: activeNote.paragraphs,
+        customSections: activeNote.customSections
+      };
+
+      const response = await fetch(`/api/notes/${activeNote.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify(saveData),
       });
 
-      // Update local data
-      this.notes[this.activeNote].title = title;
-      this.notes[this.activeNote].content = content;
+      if (response.ok) {
+        // Update local data
+        this.notes[this.activeNote].title = title;
 
-      // Update display if in view mode
-      if (!this.noteEditMode) {
-        this.updateNoteDisplay();
+        // Update tab title if it changed
+        this.renderNotesView();
       }
-
-      // Update tab title
-      this.renderNotesView();
 
       // Hide indicator after a short delay
       setTimeout(() => {
@@ -3099,6 +3411,1504 @@ class TaskManager {
       await this.loadNotes();
     } catch (error) {
       console.error("Error deleting note:", error);
+    }
+  }
+
+  // Enhanced Notes Functionality
+  toggleEnhancedMode() {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote) return;
+
+    // Toggle enhanced mode
+    this.enhancedMode = !this.enhancedMode;
+    
+    if (this.enhancedMode) {
+      currentNote.mode = "enhanced";
+      // Convert content to paragraphs and parse custom sections if not already done
+      if (!currentNote.paragraphs || currentNote.paragraphs.length === 0) {
+        const parsed = this.parseContentAndCustomSections(currentNote.content);
+        currentNote.paragraphs = parsed.paragraphs;
+        currentNote.customSections = parsed.customSections;
+      }
+    } else {
+      currentNote.mode = "simple";
+    }
+
+    // Update button visual state and text
+    const btn = document.getElementById('toggleModeBtn');
+    const btnText = document.getElementById('toggleModeText');
+    if (this.enhancedMode) {
+      btn.classList.add('bg-purple-200', 'dark:bg-purple-800');
+      btn.classList.remove('bg-purple-100', 'dark:bg-purple-900');
+      btn.title = 'Switch to Simple Mode';
+      btnText.textContent = 'Simple';
+    } else {
+      btn.classList.remove('bg-purple-200', 'dark:bg-purple-800');
+      btn.classList.add('bg-purple-100', 'dark:bg-purple-900');
+      btn.title = 'Switch to Enhanced Mode';
+      btnText.textContent = 'Enhanced';
+    }
+
+    console.log('Enhanced mode:', this.enhancedMode, 'Note mode:', currentNote.mode);
+    this.renderActiveNote();
+    // Remove auto-save here since mode switching shouldn't trigger saves
+  }
+
+
+  parseContentAndCustomSections(content) {
+    if (!content) return { paragraphs: [], customSections: [] };
+    
+    // Extract custom sections metadata from HTML comment
+    let customSections = [];
+    const metadataMatch = content.match(/<!-- Custom Sections Metadata:\n([\s\S]*?)\n-->/);
+    if (metadataMatch) {
+      try {
+        customSections = JSON.parse(metadataMatch[1]);
+        // Remove the metadata comment from content for paragraph parsing
+        content = content.replace(/<!-- Custom Sections Metadata:[\s\S]*?-->/, '').trim();
+      } catch (e) {
+        console.warn('Failed to parse custom sections metadata:', e);
+      }
+    }
+    
+    const paragraphs = this.convertContentToParagraphs(content);
+    return { paragraphs, customSections };
+  }
+
+  convertContentToParagraphs(content) {
+    if (!content) return [];
+    
+    const paragraphs = [];
+    const lines = content.split('\n');
+    let currentParagraph = '';
+    let order = 0;
+    let inCodeBlock = false;
+    let codeLanguage = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Skip custom section headers (## and ###) as they're part of custom sections
+      if (line.trim().startsWith('## ') || line.trim().startsWith('### ')) {
+        // End current paragraph if any
+        if (currentParagraph.trim()) {
+          paragraphs.push({
+            id: this.generateParagraphId(),
+            type: 'text',
+            content: currentParagraph.trim(),
+            order: order++
+          });
+          currentParagraph = '';
+        }
+        continue;
+      }
+      
+      // Check for code block markers
+      if (line.trim().startsWith('```')) {
+        if (inCodeBlock) {
+          // End of code block
+          if (currentParagraph.trim()) {
+            paragraphs.push({
+              id: this.generateParagraphId(),
+              type: 'code',
+              content: currentParagraph.trim(),
+              language: codeLanguage,
+              order: order++
+            });
+          }
+          currentParagraph = '';
+          inCodeBlock = false;
+          codeLanguage = '';
+        } else {
+          // Start of code block
+          if (currentParagraph.trim()) {
+            paragraphs.push({
+              id: this.generateParagraphId(),
+              type: 'text',
+              content: currentParagraph.trim(),
+              order: order++
+            });
+          }
+          inCodeBlock = true;
+          codeLanguage = line.replace('```', '').trim();
+          currentParagraph = '';
+        }
+        continue;
+      }
+
+      if (inCodeBlock) {
+        currentParagraph += (currentParagraph ? '\n' : '') + line;
+      } else if (line.trim() === '') {
+        // Empty line - end current paragraph
+        if (currentParagraph.trim()) {
+          paragraphs.push({
+            id: this.generateParagraphId(),
+            type: 'text',
+            content: currentParagraph.trim(),
+            order: order++
+          });
+          currentParagraph = '';
+        }
+      } else {
+        currentParagraph += (currentParagraph ? '\n' : '') + line;
+      }
+    }
+
+    // Add remaining content
+    if (currentParagraph.trim()) {
+      paragraphs.push({
+        id: this.generateParagraphId(),
+        type: inCodeBlock ? 'code' : 'text',
+        content: currentParagraph.trim(),
+        language: inCodeBlock ? codeLanguage : undefined,
+        order: order++
+      });
+    }
+
+    return paragraphs.length > 0 ? paragraphs : [{
+      id: this.generateParagraphId(),
+      type: 'text',
+      content: '',
+      order: 0
+    }];
+  }
+
+  generateParagraphId() {
+    return 'para_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  addParagraph(type = 'text') {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote) return;
+
+    if (!currentNote.paragraphs) {
+      currentNote.paragraphs = [];
+    }
+
+    const newParagraph = {
+      id: this.generateParagraphId(),
+      type: type,
+      content: '',
+      language: type === 'code' ? 'javascript' : undefined,
+      order: currentNote.paragraphs.length
+    };
+
+    currentNote.paragraphs.push(newParagraph);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+    
+    // Focus on the new paragraph
+    setTimeout(() => {
+      const paragraphElement = document.querySelector(`[data-paragraph-id="${newParagraph.id}"] textarea, [data-paragraph-id="${newParagraph.id}"] [contenteditable]`);
+      if (paragraphElement) {
+        paragraphElement.focus();
+      }
+    }, 100);
+  }
+
+  openMarkdownFile() {
+    document.getElementById('markdownFileInput').click();
+  }
+
+  async handleMarkdownFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      const title = file.name.replace(/\.(md|markdown)$/i, '');
+      
+      // Create new note with the markdown content
+      const parsed = this.parseContentAndCustomSections(content);
+      const newNote = {
+        title: title,
+        content: content,
+        mode: 'enhanced',
+        paragraphs: parsed.paragraphs,
+        customSections: parsed.customSections
+      };
+
+      // Add the note
+      const response = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newNote)
+      });
+
+      if (response.ok) {
+        await this.loadNotes();
+        // Select the new note
+        this.activeNote = this.notes.length - 1;
+        this.enhancedMode = true;
+        this.renderNotesView();
+        this.showAutoSaveIndicator();
+      }
+    } catch (error) {
+      console.error('Error importing markdown file:', error);
+      alert('Error importing markdown file');
+    }
+
+    // Clear the input
+    event.target.value = '';
+  }
+
+  toggleMultiSelect() {
+    this.multiSelectMode = !this.multiSelectMode;
+    const btn = document.getElementById('enableMultiSelectBtn');
+    btn.textContent = this.multiSelectMode ? 'Exit Multi-Select' : 'Multi-Select';
+    btn.className = this.multiSelectMode 
+      ? 'bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700'
+      : 'bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700';
+    
+    if (!this.multiSelectMode) {
+      this.selectedParagraphs = [];
+      this.hideMultiSelectActions();
+    } else {
+      this.showMultiSelectActions();
+    }
+    this.renderActiveNote();
+  }
+
+  showMultiSelectActions() {
+    const container = document.getElementById('paragraphsContainer');
+    let actionBar = document.getElementById('multiSelectActions');
+    
+    if (!actionBar) {
+      actionBar = document.createElement('div');
+      actionBar.id = 'multiSelectActions';
+      actionBar.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3 flex space-x-2 z-50';
+      actionBar.innerHTML = `
+        <button onclick="taskManager.deleteSelectedParagraphs()" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">Delete Selected</button>
+        <button onclick="taskManager.duplicateSelectedParagraphs()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Duplicate Selected</button>
+        <button onclick="taskManager.moveSelectedParagraphs('up')" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">Move Up</button>
+        <button onclick="taskManager.moveSelectedParagraphs('down')" class="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700">Move Down</button>
+      `;
+      document.body.appendChild(actionBar);
+    }
+    actionBar.style.display = 'flex';
+  }
+
+  hideMultiSelectActions() {
+    const actionBar = document.getElementById('multiSelectActions');
+    if (actionBar) {
+      actionBar.style.display = 'none';
+    }
+  }
+
+  deleteSelectedParagraphs() {
+    if (this.selectedParagraphs.length === 0) return;
+    if (!confirm(`Delete ${this.selectedParagraphs.length} selected paragraph(s)?`)) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    // Remove selected paragraphs
+    currentNote.paragraphs = currentNote.paragraphs.filter(p => !this.selectedParagraphs.includes(p.id));
+    
+    // Reorder remaining paragraphs
+    currentNote.paragraphs.forEach((p, index) => p.order = index);
+    
+    // Clear selection
+    this.selectedParagraphs = [];
+    
+    // Sync content and save
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    
+    // Force save and show indicator
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  duplicateSelectedParagraphs() {
+    if (this.selectedParagraphs.length === 0) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const selectedParagraphs = currentNote.paragraphs.filter(p => this.selectedParagraphs.includes(p.id));
+    const newParagraphs = selectedParagraphs.map(p => ({
+      ...p,
+      id: this.generateParagraphId(),
+      order: p.order + 0.1
+    }));
+
+    currentNote.paragraphs.push(...newParagraphs);
+    currentNote.paragraphs.sort((a, b) => a.order - b.order);
+    currentNote.paragraphs.forEach((p, index) => p.order = index);
+    
+    this.selectedParagraphs = [];
+    
+    // Sync content and save
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    
+    // Force save and show indicator
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  moveSelectedParagraphs(direction) {
+    if (this.selectedParagraphs.length === 0) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const sortedParagraphs = [...currentNote.paragraphs].sort((a, b) => a.order - b.order);
+    const selectedIndices = this.selectedParagraphs.map(id => 
+      sortedParagraphs.findIndex(p => p.id === id)
+    ).sort((a, b) => a - b);
+
+    let moved = false;
+    if (direction === 'up' && selectedIndices[0] > 0) {
+      selectedIndices.forEach(index => {
+        [sortedParagraphs[index], sortedParagraphs[index - 1]] = [sortedParagraphs[index - 1], sortedParagraphs[index]];
+      });
+      moved = true;
+    } else if (direction === 'down' && selectedIndices[selectedIndices.length - 1] < sortedParagraphs.length - 1) {
+      selectedIndices.reverse().forEach(index => {
+        [sortedParagraphs[index], sortedParagraphs[index + 1]] = [sortedParagraphs[index + 1], sortedParagraphs[index]];
+      });
+      moved = true;
+    }
+
+    if (moved) {
+      sortedParagraphs.forEach((p, index) => p.order = index);
+      
+      // Sync content and save
+      this.syncParagraphsToContent();
+      this.renderActiveNote();
+      
+      // Force save and show indicator
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  showAutoSaveIndicator() {
+    const indicator = document.getElementById('autoSaveIndicator');
+    indicator.classList.add('show');
+    setTimeout(() => {
+      indicator.classList.remove('show');
+    }, 2000);
+  }
+
+  addCustomSection() {
+    this.openCustomSectionModal();
+  }
+
+  openCustomSectionModal() {
+    document.getElementById('customSectionTitle').value = '';
+    document.getElementById('customSectionType').value = 'tabs';
+    document.getElementById('customSectionModal').classList.remove('hidden');
+    document.getElementById('customSectionModal').classList.add('flex');
+  }
+
+  closeCustomSectionModal() {
+    document.getElementById('customSectionModal').classList.add('hidden');
+    document.getElementById('customSectionModal').classList.remove('flex');
+  }
+
+  createCustomSection() {
+    const type = document.getElementById('customSectionType').value;
+    const title = document.getElementById('customSectionTitle').value.trim();
+    
+    if (!title) {
+      alert('Please enter a section title');
+      return;
+    }
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote) return;
+
+    if (!currentNote.customSections) {
+      currentNote.customSections = [];
+    }
+
+    const newSection = {
+      id: this.generateSectionId(),
+      type: type,
+      title: title,
+      order: currentNote.customSections.length,
+      config: this.getInitialSectionConfig(type)
+    };
+
+    currentNote.customSections.push(newSection);
+    this.closeCustomSectionModal();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  generateSectionId() {
+    return 'section_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  getInitialSectionConfig(type) {
+    switch (type) {
+      case 'tabs':
+        return {
+          tabs: [
+            { id: this.generateTabId(), title: 'Tab 1', content: [] },
+            { id: this.generateTabId(), title: 'Tab 2', content: [] }
+          ]
+        };
+      case 'timeline':
+        return {
+          timeline: [
+            { 
+              id: this.generateTimelineId(), 
+              title: 'Initial Step', 
+              status: 'pending', 
+              date: new Date().toISOString().split('T')[0],
+              content: []
+            }
+          ]
+        };
+      case 'split-view':
+        return {
+          splitView: {
+            columns: [[], []]
+          }
+        };
+      default:
+        return {};
+    }
+  }
+
+  generateTabId() {
+    return 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  generateTimelineId() {
+    return 'timeline_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  renderCustomSections() {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const container = document.getElementById('customSectionsContainer');
+    container.innerHTML = '';
+
+    const sortedSections = [...currentNote.customSections].sort((a, b) => a.order - b.order);
+
+    sortedSections.forEach(section => {
+      const sectionElement = this.createCustomSectionElement(section);
+      container.appendChild(sectionElement);
+    });
+  }
+
+  createCustomSectionElement(section) {
+    const div = document.createElement('div');
+    div.className = 'custom-section';
+    div.setAttribute('data-section-id', section.id);
+
+    const headerHtml = `
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">${section.title}</h3>
+        <div class="flex space-x-2">
+          <button onclick="taskManager.deleteCustomSection('${section.id}')" 
+                  class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">Delete</button>
+        </div>
+      </div>
+    `;
+
+    let contentHtml = '';
+    switch (section.type) {
+      case 'tabs':
+        contentHtml = this.renderTabsSection(section);
+        break;
+      case 'timeline':
+        contentHtml = this.renderTimelineSection(section);
+        break;
+      case 'split-view':
+        contentHtml = this.renderSplitViewSection(section);
+        break;
+    }
+
+    div.innerHTML = headerHtml + contentHtml;
+    return div;
+  }
+
+  renderTabsSection(section) {
+    const tabs = section.config.tabs || [];
+    // Use stored active tab or default to first tab
+    const storedActiveTab = this.activeTabState[section.id];
+    const activeTabId = storedActiveTab && tabs.find(t => t.id === storedActiveTab) 
+      ? storedActiveTab 
+      : (tabs.length > 0 ? tabs[0].id : null);
+    
+    // Store the active tab
+    if (activeTabId) {
+      this.activeTabState[section.id] = activeTabId;
+    }
+
+    let tabNavHtml = '<div class="border-b border-gray-200 dark:border-gray-700 mb-4"><nav class="flex space-x-8">';
+    tabs.forEach((tab, index) => {
+      const isActive = tab.id === activeTabId;
+      tabNavHtml += `
+        <button onclick="taskManager.switchTab('${section.id}', '${tab.id}')" 
+                class="py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  isActive 
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                }" 
+                data-tab-id="${tab.id}">
+          ${tab.title}
+        </button>
+      `;
+    });
+    tabNavHtml += `
+      <button onclick="taskManager.addTab('${section.id}')" 
+              class="py-2 px-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+        + Add Tab
+      </button>
+    </nav></div>`;
+
+    let tabContentHtml = '<div class="tab-contents">';
+    tabs.forEach((tab, index) => {
+      const isActive = tab.id === activeTabId;
+      tabContentHtml += `
+        <div class="tab-content ${isActive ? 'active' : ''}" data-tab-id="${tab.id}">
+          <div class="mb-2">
+            <input type="text" value="${tab.title}" 
+                   onblur="taskManager.updateTabTitle('${section.id}', '${tab.id}', this.value)"
+                   class="text-sm font-medium border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+          </div>
+          <div class="space-y-2">
+            <button onclick="taskManager.addContentToTab('${section.id}', '${tab.id}', 'text')" 
+                    class="mr-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">+ Text</button>
+            <button onclick="taskManager.addContentToTab('${section.id}', '${tab.id}', 'code')" 
+                    class="mr-2 px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">+ Code</button>
+            <button onclick="taskManager.deleteTab('${section.id}', '${tab.id}')" 
+                    class="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">Delete Tab</button>
+          </div>
+          <div class="mt-4 space-y-2" id="tab-content-${tab.id}">
+            ${this.renderTabContent(tab.content)}
+          </div>
+        </div>
+      `;
+    });
+    tabContentHtml += '</div>';
+
+    return tabNavHtml + tabContentHtml;
+  }
+
+  renderTimelineSection(section) {
+    const timeline = section.config.timeline || [];
+    
+    let html = `
+      <div class="mb-4">
+        <button onclick="taskManager.addTimelineItem('${section.id}')" 
+                class="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600">+ Add Step</button>
+      </div>
+      <div class="space-y-4">
+    `;
+
+    timeline.forEach(item => {
+      const statusColor = {
+        'success': 'border-green-500 text-green-700',
+        'failed': 'border-red-500 text-red-700',
+        'pending': 'border-yellow-500 text-yellow-700'
+      }[item.status] || 'border-gray-500 text-gray-700';
+
+      html += `
+        <div class="timeline-item ${item.status}">
+          <div class="flex items-center justify-between mb-2">
+            <input type="text" value="${item.title}" 
+                   onblur="taskManager.updateTimelineItemTitle('${section.id}', '${item.id}', this.value)"
+                   class="font-medium text-sm border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+            <div class="flex items-center space-x-2">
+              <input type="date" value="${item.date}" 
+                     onchange="taskManager.updateTimelineItemDate('${section.id}', '${item.id}', this.value)"
+                     class="text-xs border rounded px-2 py-1">
+              <select onchange="taskManager.updateTimelineItemStatus('${section.id}', '${item.id}', this.value)" 
+                      class="text-xs border rounded px-2 py-1 ${statusColor}">
+                <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="success" ${item.status === 'success' ? 'selected' : ''}>Success</option>
+                <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Failed</option>
+              </select>
+              <button onclick="taskManager.deleteTimelineItem('${section.id}', '${item.id}')" 
+                      class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">Delete</button>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <button onclick="taskManager.addContentToTimeline('${section.id}', '${item.id}', 'text')" 
+                    class="mr-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">+ Text</button>
+            <button onclick="taskManager.addContentToTimeline('${section.id}', '${item.id}', 'code')" 
+                    class="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">+ Code</button>
+          </div>
+          <div class="mt-2 space-y-2" id="timeline-content-${item.id}">
+            ${this.renderTabContent(item.content)}
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    return html;
+  }
+
+  renderSplitViewSection(section) {
+    const columns = section.config.splitView?.columns || [[], []];
+    
+    let html = `
+      <div class="mb-4 flex space-x-2">
+        <button onclick="taskManager.addColumnToSplitView('${section.id}')" 
+                class="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600">+ Add Column</button>
+        <span class="text-sm text-gray-600 dark:text-gray-400">${columns.length} columns</span>
+      </div>
+      <div class="flex space-x-4">
+    `;
+
+    columns.forEach((column, columnIndex) => {
+      html += `
+        <div class="split-view-column flex-1">
+          <div class="flex justify-between items-center mb-2">
+            <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">Column ${columnIndex + 1}</h4>
+            <button onclick="taskManager.removeColumnFromSplitView('${section.id}', ${columnIndex})" 
+                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">Remove</button>
+          </div>
+          <div class="space-y-2 mb-4">
+            <button onclick="taskManager.addContentToSplitView('${section.id}', ${columnIndex}, 'text')" 
+                    class="mr-2 px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">+ Text</button>
+            <button onclick="taskManager.addContentToSplitView('${section.id}', ${columnIndex}, 'code')" 
+                    class="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600">+ Code</button>
+          </div>
+          <div class="space-y-2" id="split-column-${section.id}-${columnIndex}">
+            ${this.renderTabContent(column)}
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+    return html;
+  }
+
+  renderTabContent(content) {
+    if (!content || content.length === 0) {
+      return '<p class="text-sm text-gray-500 dark:text-gray-400 italic">No content yet</p>';
+    }
+
+    return content.map(item => {
+      const isCodeBlock = item.type === 'code';
+      if (isCodeBlock) {
+        return `
+          <div class="relative border border-gray-200 dark:border-gray-600 rounded mb-2">
+            <textarea rows="8" 
+                      class="w-full p-3 code-block border-0 resize-none focus:outline-none text-sm"
+                      onblur="taskManager.updateCustomContent('${item.id}', this.value)"
+                      placeholder="Enter your code here...">${item.content}</textarea>
+            <button onclick="taskManager.deleteTabContent('${item.id}')" 
+                    class="absolute top-2 right-2 px-1 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">×</button>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="relative border border-gray-200 dark:border-gray-600 rounded mb-2">
+            <textarea rows="8" 
+                      class="w-full p-3 border-0 resize-none focus:outline-none text-sm"
+                      onblur="taskManager.updateCustomContent('${item.id}', this.value)"
+                      placeholder="Enter your text here...">${item.content}</textarea>
+            <button onclick="taskManager.deleteTabContent('${item.id}')" 
+                    class="absolute top-2 right-2 px-1 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">×</button>
+          </div>
+        `;
+      }
+    }).join('');
+  }
+
+  handleParagraphBlur(event, paragraphId, content) {
+    // Check if the blur is happening because we're clicking on a control element
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget && (
+      relatedTarget.classList.contains('language-selector') ||
+      relatedTarget.closest('.paragraph-controls') ||
+      relatedTarget.onclick && relatedTarget.onclick.toString().includes('deleteTabContent')
+    )) {
+      // Don't process blur if we're interacting with controls
+      return;
+    }
+    
+    // Use a small delay to allow for control interactions
+    setTimeout(() => {
+      this.updateParagraphContent(paragraphId, content);
+    }, 100);
+  }
+
+  updateParagraphContent(paragraphId, content) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const paragraph = currentNote.paragraphs.find(p => p.id === paragraphId);
+    if (paragraph && paragraph.content !== content) {
+      paragraph.content = content;
+      // Also update the main content field for backward compatibility
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  syncParagraphsToContent() {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote) return;
+
+    let content = '';
+    
+    // Add paragraphs content
+    if (currentNote.paragraphs && currentNote.paragraphs.length > 0) {
+      const sortedParagraphs = [...currentNote.paragraphs].sort((a, b) => a.order - b.order);
+      
+      sortedParagraphs.forEach(paragraph => {
+        if (paragraph.type === 'code') {
+          content += `\`\`\`${paragraph.language || 'text'}\n${paragraph.content}\n\`\`\`\n\n`;
+        } else {
+          content += `${paragraph.content}\n\n`;
+        }
+      });
+    }
+    
+    // Add custom sections metadata as JSON comment for structure preservation
+    if (currentNote.customSections && currentNote.customSections.length > 0) {
+      content += `\n\n<!-- Custom Sections Metadata:\n${JSON.stringify(currentNote.customSections, null, 2)}\n-->\n`;
+    }
+    
+    currentNote.content = content.trim();
+  }
+
+  updateParagraphLanguage(paragraphId, language) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const paragraph = currentNote.paragraphs.find(p => p.id === paragraphId);
+    if (paragraph && paragraph.language !== language) {
+      paragraph.language = language;
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+      
+      // Update the display to show the new language in the selector
+      this.renderActiveNote();
+    }
+  }
+
+  duplicateParagraph(paragraphId) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const originalParagraph = currentNote.paragraphs.find(p => p.id === paragraphId);
+    if (!originalParagraph) return;
+
+    const newParagraph = {
+      ...originalParagraph,
+      id: this.generateParagraphId(),
+      order: originalParagraph.order + 0.5
+    };
+
+    currentNote.paragraphs.push(newParagraph);
+    currentNote.paragraphs.sort((a, b) => a.order - b.order);
+    currentNote.paragraphs.forEach((p, index) => p.order = index);
+    
+    // Sync content and save
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  toggleParagraphType(paragraphId) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    const paragraph = currentNote.paragraphs.find(p => p.id === paragraphId);
+    if (!paragraph) return;
+
+    paragraph.type = paragraph.type === 'code' ? 'text' : 'code';
+    if (paragraph.type === 'code' && !paragraph.language) {
+      paragraph.language = 'javascript';
+    }
+
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  deleteParagraph(paragraphId) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    if (!confirm('Delete this paragraph?')) return;
+
+    currentNote.paragraphs = currentNote.paragraphs.filter(p => p.id !== paragraphId);
+    currentNote.paragraphs.forEach((p, index) => p.order = index);
+    
+    // Sync content and save
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  toggleParagraphSelection(paragraphId) {
+    const index = this.selectedParagraphs.indexOf(paragraphId);
+    if (index > -1) {
+      this.selectedParagraphs.splice(index, 1);
+    } else {
+      this.selectedParagraphs.push(paragraphId);
+    }
+    this.renderActiveNote();
+  }
+
+  handleParagraphKeyDown(event, paragraphId) {
+    // Handle Tab key for indentation
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      const target = event.target;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      
+      if (event.shiftKey) {
+        // Remove tab (shift+tab)
+        const beforeCursor = target.value.substring(0, start);
+        const afterCursor = target.value.substring(end);
+        if (beforeCursor.endsWith('  ')) {
+          target.value = beforeCursor.slice(0, -2) + afterCursor;
+          target.selectionStart = target.selectionEnd = start - 2;
+        } else if (beforeCursor.endsWith('\t')) {
+          target.value = beforeCursor.slice(0, -1) + afterCursor;
+          target.selectionStart = target.selectionEnd = start - 1;
+        }
+      } else {
+        // Add tab
+        target.value = target.value.substring(0, start) + '  ' + target.value.substring(end);
+        target.selectionStart = target.selectionEnd = start + 2;
+      }
+      
+      this.updateParagraphContent(paragraphId, target.value);
+    }
+  }
+
+  initDragAndDrop() {
+    // File drop zone functionality
+    const dropZone = document.getElementById('fileDropZone');
+    if (!dropZone) return;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, this.preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.remove('hidden');
+        dropZone.classList.add('drop-zone-active');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.add('hidden');
+        dropZone.classList.remove('drop-zone-active');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      this.handleFileDrop(e);
+    }, false);
+
+    // Paragraph drag and drop
+    this.initParagraphDragAndDrop();
+  }
+
+  initParagraphDragAndDrop() {
+    const container = document.getElementById('paragraphsContainer');
+    if (!container) return;
+
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const afterElement = this.getDragAfterElement(container, e.clientY);
+      const draggedElement = container.querySelector('.dragging');
+      
+      if (draggedElement) {
+        if (afterElement == null) {
+          container.appendChild(draggedElement);
+        } else {
+          container.insertBefore(draggedElement, afterElement);
+        }
+      }
+    });
+
+    container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      console.log('Drop event triggered');
+      this.updateParagraphOrder();
+    });
+
+    container.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+    });
+  }
+
+  getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.paragraph-section:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  updateParagraphOrder() {
+    const container = document.getElementById('paragraphsContainer');
+    const paragraphElements = container.querySelectorAll('.paragraph-section');
+    const currentNote = this.notes[this.activeNote];
+    
+    if (!currentNote || !currentNote.paragraphs) return;
+
+    let orderChanged = false;
+    paragraphElements.forEach((element, index) => {
+      const paragraphId = element.getAttribute('data-paragraph-id');
+      const paragraph = currentNote.paragraphs.find(p => p.id === paragraphId);
+      if (paragraph && paragraph.order !== index) {
+        paragraph.order = index;
+        orderChanged = true;
+      }
+    });
+
+    if (orderChanged) {
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  async handleFileDrop(e) {
+    const files = [...e.dataTransfer.files];
+    
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        await this.addImageToNote(file);
+      } else if (file.type === 'text/plain' || file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+        await this.addTextFileToNote(file);
+      } else {
+        // Add as attachment reference
+        await this.addFileReference(file);
+      }
+    }
+  }
+
+  async addImageToNote(file) {
+    // Convert image to base64 or handle file upload
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageMarkdown = `![${file.name}](${e.target.result})`;
+      this.addParagraph('text');
+      const currentNote = this.notes[this.activeNote];
+      const lastParagraph = currentNote.paragraphs[currentNote.paragraphs.length - 1];
+      lastParagraph.content = imageMarkdown;
+      this.syncParagraphsToContent();
+      this.renderActiveNote();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async addTextFileToNote(file) {
+    const content = await file.text();
+    const isMarkdown = file.name.endsWith('.md');
+    
+    if (isMarkdown) {
+      const parsed = this.parseContentAndCustomSections(content);
+      const currentNote = this.notes[this.activeNote];
+      currentNote.paragraphs.push(...parsed.paragraphs.map(p => ({...p, order: currentNote.paragraphs.length + p.order})));
+      
+      // Add custom sections if any
+      if (parsed.customSections && parsed.customSections.length > 0) {
+        if (!currentNote.customSections) currentNote.customSections = [];
+        currentNote.customSections.push(...parsed.customSections.map(s => ({
+          ...s, 
+          order: currentNote.customSections.length + s.order
+        })));
+      }
+    } else {
+      this.addParagraph('text');
+      const currentNote = this.notes[this.activeNote];
+      const lastParagraph = currentNote.paragraphs[currentNote.paragraphs.length - 1];
+      lastParagraph.content = content;
+    }
+    
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  async addFileReference(file) {
+    const fileRef = `[📎 ${file.name}](attachment:${file.name})`;
+    this.addParagraph('text');
+    const currentNote = this.notes[this.activeNote];
+    const lastParagraph = currentNote.paragraphs[currentNote.paragraphs.length - 1];
+    lastParagraph.content = fileRef;
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+
+  parseMarkdownContent(content) {
+    // Basic markdown parsing
+    return content
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*)\*/gim, '<em>$1</em>')
+      .replace(/`([^`]+)`/gim, '<code>$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>')
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="max-w-full h-auto">')
+      .replace(/\n/g, '<br>');
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Custom Section Management Functions
+  deleteCustomSection(sectionId) {
+    if (!confirm('Delete this custom section?')) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    currentNote.customSections = currentNote.customSections.filter(s => s.id !== sectionId);
+    
+    // Clear any active tab state for this section
+    if (this.activeTabState[sectionId]) {
+      delete this.activeTabState[sectionId];
+    }
+    
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  // Tab Functions
+  switchTab(sectionId, tabId) {
+    const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+    if (!section) return;
+
+    // Store the active tab state
+    this.activeTabState[sectionId] = tabId;
+
+    // Update tab navigation
+    section.querySelectorAll('[data-tab-id]').forEach(btn => {
+      btn.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+      btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300', 'dark:text-gray-400', 'dark:hover:text-gray-300');
+    });
+    
+    const activeTab = section.querySelector(`button[data-tab-id="${tabId}"]`);
+    if (activeTab) {
+      activeTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+      activeTab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300', 'dark:text-gray-400', 'dark:hover:text-gray-300');
+    }
+
+    // Update tab content
+    section.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.remove('active');
+    });
+    
+    const activeContent = section.querySelector(`.tab-content[data-tab-id="${tabId}"]`);
+    if (activeContent) {
+      activeContent.classList.add('active');
+    }
+  }
+
+  addTab(sectionId) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'tabs') return;
+
+    const newTab = {
+      id: this.generateTabId(),
+      title: `Tab ${section.config.tabs.length + 1}`,
+      content: []
+    };
+
+    section.config.tabs.push(newTab);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  updateTabTitle(sectionId, tabId, title) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'tabs') return;
+
+    const tab = section.config.tabs.find(t => t.id === tabId);
+    if (tab) {
+      tab.title = title;
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  deleteTab(sectionId, tabId) {
+    if (!confirm('Delete this entire tab and all its content?')) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'tabs') return;
+
+    // Remove the tab
+    section.config.tabs = section.config.tabs.filter(t => t.id !== tabId);
+    
+    // Clear active tab state if we deleted the active tab
+    if (this.activeTabState[sectionId] === tabId) {
+      delete this.activeTabState[sectionId];
+    }
+
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  addContentToTab(sectionId, tabId, type) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'tabs') return;
+
+    const tab = section.config.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    const newContent = {
+      id: this.generateParagraphId(),
+      type: type,
+      content: type === 'code' ? '// Enter your code here' : 'Enter your text here',
+      language: type === 'code' ? 'javascript' : undefined
+    };
+
+    tab.content.push(newContent);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  // Timeline Functions
+  addTimelineItem(sectionId) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'timeline') return;
+
+    const newItem = {
+      id: this.generateTimelineId(),
+      title: 'New Step',
+      status: 'pending',
+      date: new Date().toISOString().split('T')[0],
+      content: []
+    };
+
+    section.config.timeline.push(newItem);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  updateTimelineItemTitle(sectionId, itemId, title) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'timeline') return;
+
+    const item = section.config.timeline.find(i => i.id === itemId);
+    if (item) {
+      item.title = title;
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  updateTimelineItemDate(sectionId, itemId, date) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'timeline') return;
+
+    const item = section.config.timeline.find(i => i.id === itemId);
+    if (item) {
+      item.date = date;
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  updateTimelineItemStatus(sectionId, itemId, status) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'timeline') return;
+
+    const item = section.config.timeline.find(i => i.id === itemId);
+    if (item) {
+      item.status = status;
+      this.syncParagraphsToContent();
+      this.renderActiveNote();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  deleteTimelineItem(sectionId, itemId) {
+    if (!confirm('Delete this timeline item?')) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'timeline') return;
+
+    section.config.timeline = section.config.timeline.filter(i => i.id !== itemId);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  addContentToTimeline(sectionId, itemId, type) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'timeline') return;
+
+    const item = section.config.timeline.find(i => i.id === itemId);
+    if (!item) return;
+
+    const newContent = {
+      id: this.generateParagraphId(),
+      type: type,
+      content: type === 'code' ? '// Enter your code here' : 'Enter your text here',
+      language: type === 'code' ? 'javascript' : undefined
+    };
+
+    item.content.push(newContent);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  // Split View Functions
+  addColumnToSplitView(sectionId) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'split-view') return;
+
+    section.config.splitView.columns.push([]);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  removeColumnFromSplitView(sectionId, columnIndex) {
+    if (!confirm('Remove this column and all its content?')) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'split-view') return;
+
+    section.config.splitView.columns.splice(columnIndex, 1);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  addContentToSplitView(sectionId, columnIndex, type) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    const section = currentNote.customSections.find(s => s.id === sectionId);
+    if (!section || section.type !== 'split-view') return;
+
+    if (!section.config.splitView.columns[columnIndex]) return;
+
+    const newContent = {
+      id: this.generateParagraphId(),
+      type: type,
+      content: type === 'code' ? '// Enter your code here' : 'Enter your text here',
+      language: type === 'code' ? 'javascript' : undefined
+    };
+
+    section.config.splitView.columns[columnIndex].push(newContent);
+    this.syncParagraphsToContent();
+    this.renderActiveNote();
+    this.autoSaveNote().then(() => {
+      this.showAutoSaveIndicator();
+    });
+  }
+
+  // General content update
+  updateCustomContent(contentId, content) {
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    let found = false;
+    let oldContent = null;
+    
+    // Find and update content in any section
+    currentNote.customSections.forEach(section => {
+      if (section.type === 'tabs') {
+        section.config.tabs.forEach(tab => {
+          const item = tab.content.find(c => c.id === contentId);
+          if (item) {
+            oldContent = item.content;
+            item.content = content;
+            found = true;
+          }
+        });
+      } else if (section.type === 'timeline') {
+        section.config.timeline.forEach(item => {
+          const contentItem = item.content.find(c => c.id === contentId);
+          if (contentItem) {
+            oldContent = contentItem.content;
+            contentItem.content = content;
+            found = true;
+          }
+        });
+      } else if (section.type === 'split-view') {
+        section.config.splitView.columns.forEach(column => {
+          const item = column.find(c => c.id === contentId);
+          if (item) {
+            oldContent = item.content;
+            item.content = content;
+            found = true;
+          }
+        });
+      }
+    });
+
+    // Only save if content actually changed
+    if (found && oldContent !== content) {
+      this.syncParagraphsToContent();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
+    }
+  }
+
+  // General content deletion
+  deleteTabContent(contentId) {
+    if (!confirm('Delete this content?')) return;
+
+    const currentNote = this.notes[this.activeNote];
+    if (!currentNote || !currentNote.customSections) return;
+
+    // Find and remove content from any section
+    let found = false;
+    currentNote.customSections.forEach(section => {
+      if (section.type === 'tabs') {
+        section.config.tabs.forEach(tab => {
+          const originalLength = tab.content.length;
+          tab.content = tab.content.filter(c => c.id !== contentId);
+          if (tab.content.length < originalLength) found = true;
+        });
+      } else if (section.type === 'timeline') {
+        section.config.timeline.forEach(item => {
+          const originalLength = item.content.length;
+          item.content = item.content.filter(c => c.id !== contentId);
+          if (item.content.length < originalLength) found = true;
+        });
+      } else if (section.type === 'split-view') {
+        section.config.splitView.columns.forEach(column => {
+          const index = column.findIndex(c => c.id === contentId);
+          if (index > -1) {
+            column.splice(index, 1);
+            found = true;
+          }
+        });
+      }
+    });
+
+    if (found) {
+      this.syncParagraphsToContent();
+      this.renderActiveNote();
+      this.autoSaveNote().then(() => {
+        this.showAutoSaveIndicator();
+      });
     }
   }
 
@@ -4036,6 +5846,70 @@ class TaskManager {
     document.getElementById("mindmapModal").classList.remove("flex");
     this.editingMindmap = null;
     document.getElementById("mindmapModalTitle").textContent = "Add Mindmap";
+  }
+
+  handleMindmapKeyDown(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      
+      const textarea = e.target;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+      
+      if (e.shiftKey) {
+        // Shift+Tab: Remove indentation
+        const lines = value.split('\n');
+        const startLine = value.substring(0, start).split('\n').length - 1;
+        const endLine = value.substring(0, end).split('\n').length - 1;
+        
+        let newValue = '';
+        let cursorOffset = 0;
+        
+        for (let i = 0; i < lines.length; i++) {
+          if (i >= startLine && i <= endLine) {
+            // Remove 2 spaces from the beginning if they exist
+            if (lines[i].startsWith('  ')) {
+              lines[i] = lines[i].substring(2);
+              if (i === startLine) cursorOffset = -2;
+            }
+          }
+          newValue += lines[i] + (i < lines.length - 1 ? '\n' : '');
+        }
+        
+        textarea.value = newValue;
+        textarea.selectionStart = Math.max(0, start + cursorOffset);
+        textarea.selectionEnd = Math.max(0, end + cursorOffset);
+      } else {
+        // Tab: Add indentation
+        if (start === end) {
+          // No selection, just add 2 spaces at cursor
+          const newValue = value.substring(0, start) + '  ' + value.substring(end);
+          textarea.value = newValue;
+          textarea.selectionStart = textarea.selectionEnd = start + 2;
+        } else {
+          // Selection exists, indent all selected lines
+          const lines = value.split('\n');
+          const startLine = value.substring(0, start).split('\n').length - 1;
+          const endLine = value.substring(0, end).split('\n').length - 1;
+          
+          let newValue = '';
+          let cursorOffset = 0;
+          
+          for (let i = 0; i < lines.length; i++) {
+            if (i >= startLine && i <= endLine) {
+              lines[i] = '  ' + lines[i];
+              if (i === startLine) cursorOffset = 2;
+            }
+            newValue += lines[i] + (i < lines.length - 1 ? '\n' : '');
+          }
+          
+          textarea.value = newValue;
+          textarea.selectionStart = start + cursorOffset;
+          textarea.selectionEnd = end + (cursorOffset * (endLine - startLine + 1));
+        }
+      }
+    }
   }
 
   async handleMindmapSubmit(e) {
