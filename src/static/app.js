@@ -471,6 +471,11 @@ class TaskManager {
   async switchView(view) {
     this.currentView = view;
 
+    // Disable multi-select mode when switching views
+    if (this.multiSelectMode) {
+      this.toggleMultiSelect();
+    }
+
     this.resizableEvents.forEach((elem) => elem.disconnect());
     this.notesLoaded = false;
 
@@ -3099,8 +3104,8 @@ class TaskManager {
     // Always in editing mode for enhanced editor
     const elementType = isCodeBlock ? 'textarea' : 'div';
     const attrs = isCodeBlock 
-      ? `rows="10" class="w-full p-3 code-block border-0 resize-none focus:outline-none"` 
-      : `contenteditable="true" class="w-full p-3 border-0 focus:outline-none min-h-[100px]"`;
+      ? `rows="10" class="w-full p-3 code-block border-0 resize-none focus:outline-none text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800"` 
+      : `contenteditable="true" class="w-full p-3 border-0 focus:outline-none min-h-[100px] text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"`;
     
     return `<${elementType} ${attrs} 
               onblur="taskManager.handleParagraphBlur(event, '${paragraph.id}', this.${isCodeBlock ? 'value' : 'innerText'})"
@@ -3167,7 +3172,7 @@ class TaskManager {
           sectionHtml += `<div class="tab-preview-content ${isActive ? '' : 'hidden'}" data-preview-tab-id="${tab.id}">`;
           tab.content.forEach(item => {
             if (item.type === 'code') {
-              sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm">${this.escapeHtml(item.content)}</code></pre>`;
+              sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm text-gray-900 dark:text-gray-100">${this.escapeHtml(item.content)}</code></pre>`;
             } else {
               sectionHtml += `<div class="mb-2">${this.markdownToHtml(item.content)}</div>`;
             }
@@ -3187,7 +3192,7 @@ class TaskManager {
             <div class="mt-2">`;
         item.content?.forEach(contentItem => {
           if (contentItem.type === 'code') {
-            sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm">${this.escapeHtml(contentItem.content)}</code></pre>`;
+            sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm text-gray-900 dark:text-gray-100">${this.escapeHtml(contentItem.content)}</code></pre>`;
           } else {
             sectionHtml += `<div class="mb-2">${this.markdownToHtml(contentItem.content)}</div>`;
           }
@@ -3198,7 +3203,7 @@ class TaskManager {
       sectionHtml += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
       section.config.splitView?.columns?.forEach((column, index) => {
         sectionHtml += `<div class="border border-gray-200 dark:border-gray-700 rounded p-3">
-          <h4 class="font-medium mb-2">Column ${index + 1}</h4>`;
+          <h4 class="font-medium mb-2 text-gray-900 dark:text-gray-100">Column ${index + 1}</h4>`;
         column.forEach(item => {
           if (item.type === 'code') {
             sectionHtml += `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded mb-2 overflow-x-auto"><code class="text-sm">${this.escapeHtml(item.content)}</code></pre>`;
@@ -3458,21 +3463,113 @@ class TaskManager {
   parseContentAndCustomSections(content) {
     if (!content) return { paragraphs: [], customSections: [] };
     
-    // Extract custom sections metadata from HTML comment
-    let customSections = [];
-    const metadataMatch = content.match(/<!-- Custom Sections Metadata:\n([\s\S]*?)\n-->/);
-    if (metadataMatch) {
-      try {
-        customSections = JSON.parse(metadataMatch[1]);
-        // Remove the metadata comment from content for paragraph parsing
-        content = content.replace(/<!-- Custom Sections Metadata:[\s\S]*?-->/, '').trim();
-      } catch (e) {
-        console.warn('Failed to parse custom sections metadata:', e);
+    const customSections = [];
+    let cleanContent = content;
+    
+    // Extract custom sections from markdown
+    const sectionRegex = /<!-- Custom Section: (.+?) -->\n<!-- section-id: (.+?), type: (.+?) -->\n([\s\S]*?)<!-- End Custom Section -->/g;
+    let match;
+    
+    while ((match = sectionRegex.exec(content)) !== null) {
+      const [fullMatch, title, sectionId, type, sectionContent] = match;
+      
+      const section = {
+        id: sectionId,
+        title: title,
+        type: type,
+        order: customSections.length,
+        config: this.parseCustomSectionContent(type, sectionContent)
+      };
+      
+      customSections.push(section);
+      
+      // Remove this section from the clean content
+      cleanContent = cleanContent.replace(fullMatch, '');
+    }
+    
+    const paragraphs = this.convertContentToParagraphs(cleanContent);
+    return { paragraphs, customSections };
+  }
+
+  parseCustomSectionContent(type, content) {
+    if (type === 'tabs') {
+      const tabs = [];
+      const tabRegex = /### Tab: (.+?)\n<!-- tab-id: (.+?) -->\n([\s\S]*?)(?=### Tab:|$)/g;
+      let match;
+      
+      while ((match = tabRegex.exec(content)) !== null) {
+        const [, title, tabId, tabContent] = match;
+        tabs.push({
+          id: tabId,
+          title: title,
+          content: this.parseContentBlocks(tabContent.trim())
+        });
+      }
+      
+      return { tabs };
+    } else if (type === 'timeline') {
+      const timeline = [];
+      const itemRegex = /## (.+?) \((.+?)\)\n<!-- item-id: (.+?), status: (.+?)(?:, date: (.+?))? -->\n([\s\S]*?)(?=## |$)/g;
+      let match;
+      
+      while ((match = itemRegex.exec(content)) !== null) {
+        const [, title, status, itemId, , date, itemContent] = match;
+        timeline.push({
+          id: itemId,
+          title: title,
+          status: status,
+          date: date || '',
+          content: this.parseContentBlocks(itemContent.trim())
+        });
+      }
+      
+      return { timeline };
+    } else if (type === 'split-view') {
+      const columns = [];
+      const columnRegex = /### Column (\d+)\n<!-- column-index: (\d+) -->\n([\s\S]*?)(?=### Column|$)/g;
+      let match;
+      
+      while ((match = columnRegex.exec(content)) !== null) {
+        const [, , columnIndex, columnContent] = match;
+        const index = parseInt(columnIndex);
+        columns[index] = this.parseContentBlocks(columnContent.trim());
+      }
+      
+      return { splitView: { columns } };
+    }
+    
+    return {};
+  }
+
+  parseContentBlocks(content) {
+    if (!content) return [];
+    
+    const blocks = [];
+    const parts = content.split(/\n\n+/);
+    
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      
+      // Check if it's a code block
+      const codeMatch = trimmed.match(/^```(\w+)?\n([\s\S]*?)\n```$/);
+      if (codeMatch) {
+        blocks.push({
+          id: this.generateParagraphId(),
+          type: 'code',
+          language: codeMatch[1] || 'text',
+          content: codeMatch[2]
+        });
+      } else {
+        blocks.push({
+          id: this.generateParagraphId(),
+          type: 'text',
+          content: trimmed
+        });
       }
     }
     
-    const paragraphs = this.convertContentToParagraphs(content);
-    return { paragraphs, customSections };
+    return blocks;
   }
 
   convertContentToParagraphs(content) {
@@ -4025,13 +4122,13 @@ class TaskManager {
           <div class="flex items-center justify-between mb-2">
             <input type="text" value="${item.title}" 
                    onblur="taskManager.updateTimelineItemTitle('${section.id}', '${item.id}', this.value)"
-                   class="font-medium text-sm border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+                   class="font-medium text-sm border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 text-gray-900 dark:text-gray-100">
             <div class="flex items-center space-x-2">
               <input type="date" value="${item.date}" 
                      onchange="taskManager.updateTimelineItemDate('${section.id}', '${item.id}', this.value)"
-                     class="text-xs border rounded px-2 py-1">
+                     class="text-xs border rounded px-2 py-1 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
               <select onchange="taskManager.updateTimelineItemStatus('${section.id}', '${item.id}', this.value)" 
-                      class="text-xs border rounded px-2 py-1 ${statusColor}">
+                      class="text-xs border rounded px-2 py-1 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${statusColor}">
                 <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
                 <option value="success" ${item.status === 'success' ? 'selected' : ''}>Success</option>
                 <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Failed</option>
@@ -4105,7 +4202,7 @@ class TaskManager {
         return `
           <div class="relative border border-gray-200 dark:border-gray-600 rounded mb-2">
             <textarea rows="8" 
-                      class="w-full p-3 code-block border-0 resize-none focus:outline-none text-sm"
+                      class="w-full p-3 code-block border-0 resize-none focus:outline-none text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800"
                       onblur="taskManager.updateCustomContent('${item.id}', this.value)"
                       placeholder="Enter your code here...">${item.content}</textarea>
             <button onclick="taskManager.deleteTabContent('${item.id}')" 
@@ -4116,7 +4213,7 @@ class TaskManager {
         return `
           <div class="relative border border-gray-200 dark:border-gray-600 rounded mb-2">
             <textarea rows="8" 
-                      class="w-full p-3 border-0 resize-none focus:outline-none text-sm"
+                      class="w-full p-3 border-0 resize-none focus:outline-none text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
                       onblur="taskManager.updateCustomContent('${item.id}', this.value)"
                       placeholder="Enter your text here...">${item.content}</textarea>
             <button onclick="taskManager.deleteTabContent('${item.id}')" 
@@ -4179,12 +4276,67 @@ class TaskManager {
       });
     }
     
-    // Add custom sections metadata as JSON comment for structure preservation
+    // Add custom sections as markdown with HTML comment metadata
     if (currentNote.customSections && currentNote.customSections.length > 0) {
-      content += `\n\n<!-- Custom Sections Metadata:\n${JSON.stringify(currentNote.customSections, null, 2)}\n-->\n`;
+      const sortedSections = [...currentNote.customSections].sort((a, b) => a.order - b.order);
+      
+      sortedSections.forEach(section => {
+        content += this.renderCustomSectionAsMarkdown(section);
+      });
     }
     
     currentNote.content = content.trim();
+  }
+
+  renderCustomSectionAsMarkdown(section) {
+    let markdown = `\n<!-- Custom Section: ${section.title} -->\n`;
+    markdown += `<!-- section-id: ${section.id}, type: ${section.type} -->\n\n`;
+    
+    if (section.type === 'tabs') {
+      section.config.tabs?.forEach(tab => {
+        markdown += `### Tab: ${tab.title}\n`;
+        markdown += `<!-- tab-id: ${tab.id} -->\n\n`;
+        
+        tab.content?.forEach(item => {
+          if (item.type === 'code') {
+            markdown += `\`\`\`${item.language || 'text'}\n${item.content}\n\`\`\`\n\n`;
+          } else {
+            markdown += `${item.content}\n\n`;
+          }
+        });
+      });
+    } else if (section.type === 'timeline') {
+      section.config.timeline?.forEach(item => {
+        markdown += `## ${item.title} (${item.status})\n`;
+        markdown += `<!-- item-id: ${item.id}, status: ${item.status}`;
+        if (item.date) markdown += `, date: ${item.date}`;
+        markdown += ` -->\n\n`;
+        
+        item.content?.forEach(contentItem => {
+          if (contentItem.type === 'code') {
+            markdown += `\`\`\`${contentItem.language || 'text'}\n${contentItem.content}\n\`\`\`\n\n`;
+          } else {
+            markdown += `${contentItem.content}\n\n`;
+          }
+        });
+      });
+    } else if (section.type === 'split-view') {
+      section.config.splitView?.columns?.forEach((column, index) => {
+        markdown += `### Column ${index + 1}\n`;
+        markdown += `<!-- column-index: ${index} -->\n\n`;
+        
+        column.forEach(item => {
+          if (item.type === 'code') {
+            markdown += `\`\`\`${item.language || 'text'}\n${item.content}\n\`\`\`\n\n`;
+          } else {
+            markdown += `${item.content}\n\n`;
+          }
+        });
+      });
+    }
+    
+    markdown += `<!-- End Custom Section -->\n\n`;
+    return markdown;
   }
 
   updateParagraphLanguage(paragraphId, language) {

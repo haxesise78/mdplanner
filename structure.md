@@ -24,133 +24,75 @@ Tags:
 <!-- Notes -->
 # Notes
 
-## 2025-08-17
+## Is it trully cleaner ?
 
 <!-- id: note_1 -->
-# My Title
+# Section Title
 
-Some random text
 
-Some random text
+<!-- Custom Section: Split it ! -->
+<!-- section-id: section_1755493406125_ls760tkkt, type: split-view -->
 
-My new paragraph
+### Column 1
+<!-- column-index: 0 -->
 
-Using the simple view, it should work without problem right ?
+Hello
 
-# Custom Components
+### Column 2
+<!-- column-index: 1 -->
 
-<!-- Custom Sections Metadata:
-[
-  {
-    "id": "section_1755486375590_dxi0nyxmb",
-    "type": "tabs",
-    "title": "Tab View",
-    "order": 0,
-    "config": {
-      "tabs": [
-        {
-          "id": "tab_1755486375590_tvxfnvo8k",
-          "title": "Tab 1",
-          "content": [
-            {
-              "id": "para_1755486392907_x4hqj14dn",
-              "type": "text",
-              "content": "Some text ? \nmultiline support ?\nkeep the return line !!\n"
-            }
-          ]
-        },
-        {
-          "id": "tab_1755486375590_bukrcgivk",
-          "title": "Tab 2",
-          "content": [
-            {
-              "id": "para_1755486773502_uotg5kd30",
-              "type": "code",
-              "content": "// Enter your code here\n\necho \"Hello World\"",
-              "language": "javascript"
-            }
-          ]
-        },
-        {
-          "id": "tab_1755487132841_awji404ns",
-          "title": "Last Tab",
-          "content": []
-        }
-      ]
-    }
-  },
-  {
-    "id": "section_1755487235621_gx9cxjhw3",
-    "type": "timeline",
-    "title": "Timeline test 1",
-    "order": 2,
-    "config": {
-      "timeline": [
-        {
-          "id": "timeline_1755487235621_onv9acnb9",
-          "title": "Initial Step",
-          "status": "success",
-          "date": "2025-08-18",
-          "content": [
-            {
-              "id": "para_1755487240358_f7o4b4ono",
-              "type": "text",
-              "content": "This is the first step"
-            }
-          ]
-        },
-        {
-          "id": "timeline_1755487254126_l7m09sunh",
-          "title": "Command #1",
-          "status": "failed",
-          "date": "2025-08-18",
-          "content": [
-            {
-              "id": "para_1755487257749_gj8j6tniv",
-              "type": "code",
-              "content": "echo \"hello world\"",
-              "language": "javascript"
-            },
-            {
-              "id": "para_1755487282171_7r9py0dn4",
-              "type": "code",
-              "content": "echo \"Bonjour Monde\"",
-              "language": "javascript"
-            }
-          ]
-        }
-      ]
-    }
-  },
-  {
-    "id": "section_1755487365362_rjt9ac5rr",
-    "type": "split-view",
-    "title": "Many Views",
-    "order": 3,
-    "config": {
-      "splitView": {
-        "columns": [
-          [
-            {
-              "id": "para_1755487368292_f0q5pbco3",
-              "type": "text",
-              "content": "First Column"
-            }
-          ],
-          [
-            {
-              "id": "para_1755487373993_63gf2kpy2",
-              "type": "code",
-              "content": "echo \"I am a column\"",
-              "language": "javascript"
-            }
-          ]
-        ]
-      }
-    }
-  }
-]
--->
+World
+
+<!-- End Custom Section -->
+
+
+<!-- Custom Section: title -->
+<!-- section-id: section_1755523588942_8xsq0hznc, type: tabs -->
+
+### Tab: Tab 1
+<!-- tab-id: tab_1755523588942_6wcr3rv41 -->
+
+Enter your text here
+
+```javascript
+// Enter your code here
+```
+
+### Tab: Tab 2
+<!-- tab-id: tab_1755523588942_2mqc5h1x3 -->
+
+```javascript
+// Enter your code here
+```
+
+Enter your text here
+
+```javascript
+// Enter your code here
+```
+
+### Tab: Tab 3
+<!-- tab-id: tab_1755523600721_i9ldpxdd9 -->
+
+Enter your text here
+
+<!-- End Custom Section -->
+
+
+<!-- Custom Section: timeline -->
+<!-- section-id: section_1755523649458_en7kppghl, type: timeline -->
+
+## Initial Step (pending)
+<!-- item-id: timeline_1755523649458_rxasn3o3x, status: pending, date: 2025-08-18 -->
+
+Enter your text here
+
+## New Step (success)
+<!-- item-id: timeline_1755523675841_2a65xzanx, status: success, date: 2025-08-18 -->
+
+Enter your text here
+
+<!-- End Custom Section -->
 
 <!-- Goals -->
 # Goals
@@ -175,7 +117,7 @@ Todos
 
 <!-- id: sticky_note_2 -->
 On Going
-## Sticky note {color: green; position: {x: 774, y: 97}; size: {width: 150, height: 100}}
+## Sticky note {color: green; position: {x: 763, y: 92}; size: {width: 150, height: 100}}
 
 <!-- id: sticky_note_3 -->
 Done
@@ -196,6 +138,15 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
   - Sub Level #2
   - Edit mindmap
     - Awesome !
+
+## Family tree
+
+<!-- id: mindmap_2 -->
+
+- Main
+  - Children
+    - John Doe
+    - Jane Doe
 
 <!-- Board -->
 # Board
@@ -219,3 +170,4 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 - [ ] (test1) Simple Test Task {tag: [Test]; due_date: 2025-08-22; assignee: Test User; priority: 1; effort: 1; milestone: Test}
   Test description
 - [ ] (3) Almost ready ! {tag: [Bug]; assignee: Bob; priority: 1}
+
